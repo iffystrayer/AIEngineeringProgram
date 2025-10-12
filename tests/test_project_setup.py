@@ -2,9 +2,11 @@
 TDD Tests for project setup and configuration.
 Testing that the project structure and imports work correctly.
 """
-import pytest
+
 import sys
 from pathlib import Path
+
+import pytest
 
 
 class TestProjectSetupSpecification:
@@ -86,6 +88,7 @@ class TestProjectStructure:
             dir_path = tests_dir / dir_name
             assert dir_path.exists(), f"Missing test directory: {dir_name}"
 
+
 class TestProjectImports:
     """Test that project imports work correctly"""
 
@@ -93,6 +96,7 @@ class TestProjectImports:
         """Verify src package can be imported"""
         try:
             import src
+
             assert hasattr(src, "__version__")
         except ImportError as e:
             pytest.fail(f"Cannot import src package: {e}")
@@ -100,6 +104,7 @@ class TestProjectImports:
     def test_src_package_has_version(self):
         """Verify src package has version attribute"""
         import src
+
         assert hasattr(src, "__version__")
         assert isinstance(src.__version__, str)
         assert "1.0.0" in src.__version__
