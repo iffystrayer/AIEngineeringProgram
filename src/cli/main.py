@@ -296,20 +296,156 @@ async def _resume_session_async(session_id: UUID, config: dict) -> None:
         session_id: UUID of session to resume
         config: Configuration dictionary from context
     """
-    console.print(f"\n[bold]Session ID:[/bold] {session_id}")
+    from src.database.connection import DatabaseConfig, DatabaseManager
+    from src.database.repositories.session_repository import SessionRepository
+    from src.models.schemas import SessionStatus
 
-    console.print(
-        "\n[yellow]Note:[/yellow] This is a placeholder implementation. "
-        "Full session resume will be implemented in CLI1.3."
-    )
+    # Initialize database connection
+    with console.status("[cyan]Connecting to database...", spinner="dots"):
+        db_config = DatabaseConfig(
+            host=os.getenv("DB_HOST", "localhost"),
+            port=int(os.getenv("DB_PORT", "15432")),
+            database=os.getenv("DB_NAME", "uaip_scoping"),
+            user=os.getenv("DB_USER", "uaip_user"),
+            password=os.getenv("DB_PASSWORD", "changeme"),
+        )
 
-    # Placeholder - actual implementation will:
-    # 1. Initialize DatabaseManager
-    # 2. Load session using SessionRepository
-    # 3. Validate session exists and is resumable
-    # 4. Load conversation history and stage data
-    # 5. Initialize Orchestrator with loaded state
-    # 6. Resume interactive conversation
+        db_manager = DatabaseManager(db_config)
+
+        try:
+            await db_manager.initialize()
+        except Exception as e:
+            console.print(
+                "\n[bold red]Error:[/bold red] Failed to connect to database",
+                style="red",
+            )
+            console.print(f"[dim]Details: {e}[/dim]")
+            console.print(
+                "\n[yellow]Troubleshooting:[/yellow]\n"
+                "  1. Ensure PostgreSQL is running: docker compose up -d uaip-db\n"
+                "  2. Verify database configuration in .env file"
+            )
+            raise
+
+    try:
+        # Load session from database
+        with console.status("[cyan]Loading session...", spinner="dots"):
+            session_repo = SessionRepository(db_manager)
+            session = await session_repo.get_by_id(session_id)
+
+        # Handle session not found
+        if session is None:
+            console.print(
+                f"\n[bold red]Error:[/bold red] Session {session_id} not found",
+                style="red",
+            )
+            console.print(
+                "\n[yellow]Suggestions:[/yellow]\n"
+                f"  • Check the session ID is correct\n"
+                f"  • Use [cyan]uaip list[/cyan] to see your sessions\n"
+                f"  • Start a new session with [cyan]uaip start[/cyan]"
+            )
+            sys.exit(1)
+
+        # Check session status and provide appropriate feedback
+        if session.status == SessionStatus.COMPLETED:
+            console.print("\n")
+            console.print(
+                Panel.fit(
+                    f"[bold yellow]ℹ️  Session Already Completed[/bold yellow]\n\n"
+                    f"[bold]Project:[/bold] {session.project_name}\n"
+                    f"[bold]Session ID:[/bold] {session_id}\n"
+                    f"[bold]Completed Stages:[/bold] 5/5\n\n"
+                    f"[green]This session has been completed successfully.[/green]\n\n"
+                    f"[dim]Export the charter with:[/dim]\n"
+                    f"  [cyan]uaip export {session_id}[/cyan]",
+                    title="[bold cyan]Session Information[/bold cyan]",
+                    border_style="yellow",
+                )
+            )
+            return
+
+        if session.status == SessionStatus.ABANDONED:
+            console.print("\n")
+            console.print(
+                Panel.fit(
+                    f"[bold yellow]ℹ️  Session Abandoned[/bold yellow]\n\n"
+                    f"[bold]Project:[/bold] {session.project_name}\n"
+                    f"[bold]Session ID:[/bold] {session_id}\n\n"
+                    f"[dim]This session was marked as abandoned.[/dim]\n\n"
+                    f"[yellow]Options:[/yellow]\n"
+                    f"  • Start a new session: [cyan]uaip start \"{session.project_name}\"[/cyan]\n"
+                    f"  • Delete this session: [cyan]uaip delete {session_id}[/cyan]",
+                    title="[bold cyan]Session Information[/bold cyan]",
+                    border_style="yellow",
+                )
+            )
+            return
+
+        # Display session information
+        console.print("\n")
+        console.print(
+            Panel.fit(
+                f"[bold green]✓ Session Loaded Successfully![/bold green]\n\n"
+                f"[bold]Project Name:[/bold] {session.project_name}\n"
+                f"[bold]Session ID:[/bold] {session_id}\n"
+                f"[bold]User:[/bold] {session.user_id}\n"
+                f"[bold]Current Stage:[/bold] {session.current_stage}/5\n"
+                f"[bold]Status:[/bold] {session.status.value}\n"
+                f"[bold]Started:[/bold] {session.started_at.strftime('%Y-%m-%d %H:%M')}\n"
+                f"[bold]Last Updated:[/bold] {session.last_updated_at.strftime('%Y-%m-%d %H:%M')}\n\n"
+                f"[dim]Completed {session.current_stage - 1}/5 stages[/dim]\n"
+                f"[dim]💾 State restored from database[/dim]\n"
+                f"[dim]⏸️  Press Ctrl+C anytime to pause[/dim]",
+                title="[bold cyan]Session Information[/bold cyan]",
+                border_style="green",
+            )
+        )
+
+        # Show stage progress
+        if session.current_stage > 1:
+            console.print("\n[cyan]Completed Stages:[/cyan]")
+            stage_names = {
+                1: "Business Translation",
+                2: "Value Quantification",
+                3: "Data Feasibility",
+                4: "User Centricity",
+                5: "Ethical Evaluation",
+            }
+            for stage in range(1, session.current_stage):
+                console.print(f"  ✓ [dim]Stage {stage}: {stage_names.get(stage, 'Unknown')}[/dim]")
+
+        # Show next steps (placeholder for agent integration)
+        console.print("\n[cyan]Next Steps:[/cyan]")
+        current_stage_name = {
+            1: "Business Translation",
+            2: "Value Quantification",
+            3: "Data Feasibility",
+            4: "User Centricity",
+            5: "Ethical Evaluation",
+        }.get(session.current_stage, "Unknown")
+
+        console.print(
+            f"  1. [dim]Initialize Stage {session.current_stage} ({current_stage_name}) Agent[/dim] "
+            f"[yellow]→ Coming in Phase 2[/yellow]"
+        )
+        console.print(
+            "  2. [dim]Resume interactive conversation[/dim] [yellow]→ Coming in Phase 2[/yellow]"
+        )
+        console.print(
+            f"  3. [dim]Complete Stage {session.current_stage}[/dim] [yellow]→ Coming in Phase 2[/yellow]"
+        )
+
+        console.print(
+            "\n[yellow]Note:[/yellow] Full agent conversation workflow will be implemented in Phase 2."
+        )
+        console.print(
+            "[dim]For now, session state has been loaded from database successfully.[/dim]"
+        )
+
+    finally:
+        # Clean up database connection
+        await db_manager.close()
 
 
 # ============================================================================
