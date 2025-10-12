@@ -153,20 +153,90 @@ async def _start_session_async(
         start_stage: Stage number to start from (1-5)
         config: Configuration dictionary from context
     """
-    console.print(f"\n[bold]Project:[/bold] {project_name}")
-    console.print(f"[bold]User:[/bold] {user_id}")
-    console.print(f"[bold]Starting Stage:[/bold] {start_stage}")
+    from rich.spinner import Spinner
+    from rich.live import Live
 
-    console.print(
-        "\n[yellow]Note:[/yellow] This is a placeholder implementation. "
-        "Full session management will be implemented in CLI1.2."
-    )
+    from src.database.connection import DatabaseConfig, DatabaseManager
+    from src.database.repositories.session_repository import SessionRepository
 
-    # Placeholder - actual implementation will:
-    # 1. Initialize DatabaseManager
-    # 2. Create session using SessionRepository
-    # 3. Initialize Orchestrator agent
-    # 4. Start interactive conversation loop
+    # Show initializing spinner
+    with console.status("[cyan]Initializing database connection...", spinner="dots"):
+        # Load database configuration from environment
+        db_config = DatabaseConfig(
+            host=os.getenv("DB_HOST", "localhost"),
+            port=int(os.getenv("DB_PORT", "15432")),
+            database=os.getenv("DB_NAME", "uaip_scoping"),
+            user=os.getenv("DB_USER", "uaip_user"),
+            password=os.getenv("DB_PASSWORD", "changeme"),
+        )
+
+        # Initialize database manager
+        db_manager = DatabaseManager(db_config)
+
+        try:
+            await db_manager.initialize()
+        except Exception as e:
+            console.print(
+                "\n[bold red]Error:[/bold red] Failed to connect to database",
+                style="red",
+            )
+            console.print(f"[dim]Details: {e}[/dim]")
+            console.print(
+                "\n[yellow]Troubleshooting:[/yellow]\n"
+                "  1. Ensure PostgreSQL is running: docker compose up -d uaip-db\n"
+                "  2. Verify database configuration in .env file\n"
+                "  3. Check connection settings: DB_HOST, DB_PORT, DB_NAME"
+            )
+            raise
+
+    try:
+        # Create session in database
+        with console.status("[cyan]Creating new session...", spinner="dots"):
+            session_repo = SessionRepository(db_manager)
+            session = await session_repo.create_new(
+                user_id=user_id, project_name=project_name
+            )
+
+        # Display success message with session information
+        console.print("\n")
+        console.print(
+            Panel.fit(
+                f"[bold green]✓ Session Created Successfully![/bold green]\n\n"
+                f"[bold]Project Name:[/bold] {project_name}\n"
+                f"[bold]Session ID:[/bold] {session.session_id}\n"
+                f"[bold]User:[/bold] {user_id}\n"
+                f"[bold]Current Stage:[/bold] {session.current_stage}/5\n"
+                f"[bold]Status:[/bold] {session.status.value}\n\n"
+                f"[dim]💾 Session saved to database[/dim]\n"
+                f"[dim]⏸️  Press Ctrl+C anytime to pause[/dim]\n"
+                f"[dim]▶️  Resume with: uaip resume {session.session_id}[/dim]",
+                title="[bold cyan]Session Information[/bold cyan]",
+                border_style="green",
+            )
+        )
+
+        # Show next steps (placeholder for agent integration)
+        console.print("\n[cyan]Next Steps:[/cyan]")
+        console.print(
+            "  1. [dim]Initialize Stage 1 (Business Translation) Agent[/dim] [yellow]→ Coming in Phase 2[/yellow]"
+        )
+        console.print(
+            "  2. [dim]Begin interactive conversation[/dim] [yellow]→ Coming in Phase 2[/yellow]"
+        )
+        console.print(
+            "  3. [dim]Collect business requirements[/dim] [yellow]→ Coming in Phase 2[/yellow]"
+        )
+
+        console.print(
+            "\n[yellow]Note:[/yellow] Full agent conversation workflow will be implemented in Phase 2."
+        )
+        console.print(
+            "[dim]For now, session has been created and saved to database successfully.[/dim]"
+        )
+
+    finally:
+        # Clean up database connection
+        await db_manager.close()
 
 
 # ============================================================================
