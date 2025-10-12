@@ -159,9 +159,7 @@ class StageDataRepository:
     # RETRIEVAL OPERATIONS
     # ========================================================================
 
-    async def get_field(
-        self, session_id: UUID, stage_number: int, field_name: str
-    ) -> Any | None:
+    async def get_field(self, session_id: UUID, stage_number: int, field_name: str) -> Any | None:
         """
         Retrieve a specific field value.
 
