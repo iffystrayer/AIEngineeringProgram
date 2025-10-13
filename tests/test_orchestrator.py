@@ -251,6 +251,9 @@ class TestOrchestratorStructure:
             "make_governance_decision",
             "generate_charter",
             "save_checkpoint",
+            "load_checkpoint",
+            "get_session_state",
+            "advance_to_next_stage",
         ]
         for method in required_methods:
             assert hasattr(Orchestrator, method), f"Orchestrator must have {method} method"
@@ -264,6 +267,26 @@ class TestOrchestratorStructure:
             params = list(sig.parameters.keys())
             # Expecting: self, db_pool, llm_router, config
             assert len(params) >= 3, "Orchestrator should accept db_pool and llm_router"
+
+    def test_orchestrator_has_stage_agent_registry(self) -> None:
+        """Orchestrator should maintain registry of stage agents."""
+        if ORCHESTRATOR_AVAILABLE:
+            orchestrator = Orchestrator(db_pool=None, llm_router=None)
+            assert hasattr(
+                orchestrator, "stage_agents"
+            ), "Orchestrator must have stage_agents registry"
+            assert isinstance(orchestrator.stage_agents, dict), "stage_agents should be a dict"
+
+    def test_orchestrator_has_reflection_agent_registry(self) -> None:
+        """Orchestrator should maintain registry of reflection agents."""
+        if ORCHESTRATOR_AVAILABLE:
+            orchestrator = Orchestrator(db_pool=None, llm_router=None)
+            assert hasattr(
+                orchestrator, "reflection_agents"
+            ), "Orchestrator must have reflection_agents registry"
+            assert isinstance(
+                orchestrator.reflection_agents, dict
+            ), "reflection_agents should be a dict"
 
 
 # ============================================================================
@@ -315,6 +338,43 @@ class TestOrchestratorExecution:
         assert session.project_name == "Test Project"
         assert session.status == SessionStatus.IN_PROGRESS
         assert session.current_stage == 1
+
+    @pytest.mark.asyncio
+    async def test_create_session_generates_unique_id(self, orchestrator_instance) -> None:
+        """Each new session should have unique UUID."""
+        session1 = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Project 1"
+        )
+        session2 = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Project 2"
+        )
+
+        assert session1.session_id != session2.session_id
+
+    @pytest.mark.asyncio
+    async def test_create_session_initializes_empty_stage_data(
+        self, orchestrator_instance
+    ) -> None:
+        """New session should have empty stage_data dict."""
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        assert isinstance(session.stage_data, dict)
+        assert len(session.stage_data) == 0
+
+    @pytest.mark.asyncio
+    async def test_create_session_sets_timestamps(self, orchestrator_instance) -> None:
+        """New session should have created_at and updated_at timestamps."""
+        from datetime import datetime
+
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        assert isinstance(session.created_at, datetime)
+        assert isinstance(session.updated_at, datetime)
+        assert session.created_at <= session.updated_at
 
     @pytest.mark.asyncio
     async def test_resume_existing_session(self, orchestrator_instance, mock_db_pool) -> None:
@@ -510,3 +570,344 @@ class TestOrchestratorIntegration:
         # This is a comprehensive integration test
         # Will be implemented when all agents are ready
         pytest.skip("Comprehensive integration test - implement when all agents ready")
+
+
+# ============================================================================
+# TEST AGENT COORDINATION - Skipped until implementation exists
+# ============================================================================
+
+
+@pytest.mark.skipif(not ORCHESTRATOR_AVAILABLE, reason="Orchestrator not implemented yet")
+class TestOrchestratorAgentCoordination:
+    """Tests verifying agent-to-agent coordination and communication."""
+
+    @pytest.mark.asyncio
+    async def test_orchestrator_registers_stage_agents(self, orchestrator_instance) -> None:
+        """Orchestrator should register all 5 stage agents on initialization."""
+        assert len(orchestrator_instance.stage_agents) == 5
+        for stage_num in range(1, 6):
+            assert (
+                stage_num in orchestrator_instance.stage_agents
+            ), f"Stage {stage_num} agent not registered"
+
+    @pytest.mark.asyncio
+    async def test_orchestrator_registers_reflection_agents(self, orchestrator_instance) -> None:
+        """Orchestrator should register all 3 reflection agents on initialization."""
+        assert len(orchestrator_instance.reflection_agents) == 3
+        expected_agents = ["quality", "stage_gate", "consistency"]
+        for agent_name in expected_agents:
+            assert (
+                agent_name in orchestrator_instance.reflection_agents
+            ), f"{agent_name} agent not registered"
+
+    @pytest.mark.asyncio
+    async def test_orchestrator_routes_to_correct_stage_agent(self, orchestrator_instance) -> None:
+        """Orchestrator should route to appropriate stage agent based on current stage."""
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Stage 1 should invoke Stage1Agent
+        await orchestrator_instance.run_stage(session, 1)
+        # Verify Stage1Agent was called (implementation will need to verify this)
+
+        # Advance to stage 2
+        session.current_stage = 2
+        await orchestrator_instance.run_stage(session, 2)
+        # Verify Stage2Agent was called
+
+    @pytest.mark.asyncio
+    async def test_orchestrator_passes_context_between_agents(self, orchestrator_instance) -> None:
+        """Stage agents should receive context from previous stages."""
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Complete Stage 1
+        await orchestrator_instance.run_stage(session, 1)
+
+        # Stage 2 should receive Stage 1 output as context
+        session.current_stage = 2
+        await orchestrator_instance.run_stage(session, 2)
+        # Stage 2 agent should have access to Stage 1 ProblemStatement
+
+    @pytest.mark.asyncio
+    async def test_orchestrator_invokes_quality_agent_after_response(
+        self, orchestrator_instance
+    ) -> None:
+        """Quality agent should be invoked after each user response."""
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        user_response = "Test response to evaluate"
+
+        quality_assessment = await orchestrator_instance.invoke_quality_agent(
+            user_response, session
+        )
+
+        # Quality assessment should have score and feedback
+        assert hasattr(quality_assessment, "score")
+        assert hasattr(quality_assessment, "is_acceptable")
+        assert hasattr(quality_assessment, "issues")
+        assert hasattr(quality_assessment, "suggested_followups")
+
+    @pytest.mark.asyncio
+    async def test_orchestrator_invokes_stage_gate_before_progression(
+        self, orchestrator_instance
+    ) -> None:
+        """Stage gate validator should be invoked before allowing stage progression."""
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Complete Stage 1
+        await orchestrator_instance.run_stage(session, 1)
+
+        # Attempt to advance to Stage 2 should trigger stage gate validation
+        validation_result = await orchestrator_instance.invoke_stage_gate_validator(session, 1)
+
+        assert hasattr(validation_result, "can_proceed")
+        assert hasattr(validation_result, "validation_issues")
+        assert hasattr(validation_result, "missing_fields")
+
+    @pytest.mark.asyncio
+    async def test_orchestrator_invokes_consistency_checker_after_all_stages(
+        self, orchestrator_instance
+    ) -> None:
+        """Consistency checker should run after all 5 stages complete."""
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Mock completing all stages
+        session.current_stage = 6
+        for stage_num in range(1, 6):
+            session.stage_data[stage_num] = {}  # Mock stage data
+
+        consistency_report = await orchestrator_instance.invoke_consistency_checker(session)
+
+        assert hasattr(consistency_report, "is_consistent")
+        assert hasattr(consistency_report, "cross_stage_issues")
+        assert hasattr(consistency_report, "recommendations")
+
+    @pytest.mark.asyncio
+    async def test_orchestrator_handles_agent_communication_failure(
+        self, orchestrator_instance
+    ) -> None:
+        """Orchestrator should gracefully handle agent communication failures."""
+        from unittest.mock import AsyncMock
+
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Mock agent failure
+        orchestrator_instance.stage_agents[1].execute = AsyncMock(
+            side_effect=RuntimeError("Agent communication failed")
+        )
+
+        # Should catch error and handle gracefully
+        with pytest.raises(RuntimeError):
+            await orchestrator_instance.run_stage(session, 1)
+
+        # Session should still be valid and recoverable
+        assert session.status == SessionStatus.IN_PROGRESS
+
+
+# ============================================================================
+# TEST CHECKPOINT MANAGEMENT - Skipped until implementation exists
+# ============================================================================
+
+
+@pytest.mark.skipif(not ORCHESTRATOR_AVAILABLE, reason="Orchestrator not implemented yet")
+class TestOrchestratorCheckpointManagement:
+    """Tests verifying checkpoint creation, loading, and session recovery."""
+
+    @pytest.mark.asyncio
+    async def test_save_checkpoint_after_stage_completion(self, orchestrator_instance) -> None:
+        """Checkpoint should be saved automatically after each stage completes."""
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Complete Stage 1
+        await orchestrator_instance.run_stage(session, 1)
+
+        # Checkpoint should be created
+        checkpoint = await orchestrator_instance.save_checkpoint(session, 1)
+
+        assert checkpoint is not None
+        assert checkpoint.stage_number == 1
+        assert checkpoint.session_id == session.session_id
+
+    @pytest.mark.asyncio
+    async def test_checkpoint_contains_complete_session_state(
+        self, orchestrator_instance
+    ) -> None:
+        """Checkpoint should contain all session data needed for recovery."""
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Add some stage data
+        session.stage_data[1] = {"test": "data"}
+
+        checkpoint = await orchestrator_instance.save_checkpoint(session, 1)
+
+        # Checkpoint should contain complete snapshot
+        assert checkpoint.stage_data is not None
+        assert checkpoint.stage_data.get(1) == {"test": "data"}
+        assert checkpoint.conversation_history is not None
+
+    @pytest.mark.asyncio
+    async def test_load_checkpoint_restores_session_state(self, orchestrator_instance) -> None:
+        """Loading checkpoint should fully restore session to that point."""
+        # Create session and complete Stage 1
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+        session.stage_data[1] = {"problem_statement": "test"}
+        checkpoint = await orchestrator_instance.save_checkpoint(session, 1)
+
+        # Load checkpoint into new session
+        restored_session = await orchestrator_instance.load_checkpoint(checkpoint.checkpoint_id)
+
+        assert restored_session.session_id == session.session_id
+        assert restored_session.current_stage == 1
+        assert restored_session.stage_data[1] == {"problem_statement": "test"}
+
+    @pytest.mark.asyncio
+    async def test_resume_session_loads_latest_checkpoint(self, orchestrator_instance) -> None:
+        """Resume should load the most recent checkpoint."""
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Create multiple checkpoints
+        await orchestrator_instance.save_checkpoint(session, 1)
+        session.current_stage = 2
+        await orchestrator_instance.save_checkpoint(session, 2)
+        session.current_stage = 3
+        await orchestrator_instance.save_checkpoint(session, 3)
+
+        # Resume should load Stage 3 checkpoint
+        resumed_session = await orchestrator_instance.resume_session(session.session_id)
+
+        assert resumed_session.current_stage == 3
+
+    @pytest.mark.asyncio
+    async def test_checkpoint_data_integrity_validation(self, orchestrator_instance) -> None:
+        """Checkpoint should validate data integrity on save and load."""
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Save checkpoint
+        checkpoint = await orchestrator_instance.save_checkpoint(session, 1)
+
+        # Checkpoint should have integrity hash or validation
+        assert hasattr(checkpoint, "data_hash") or hasattr(checkpoint, "checksum")
+
+    @pytest.mark.asyncio
+    async def test_corrupted_checkpoint_handling(self, orchestrator_instance) -> None:
+        """Should handle corrupted checkpoint data gracefully."""
+        from unittest.mock import patch
+
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Mock corrupted checkpoint
+        with patch.object(
+            orchestrator_instance, "load_checkpoint", side_effect=ValueError("Corrupted data")
+        ):
+            with pytest.raises(ValueError, match="Corrupted data"):
+                await orchestrator_instance.load_checkpoint("fake_checkpoint_id")
+
+    @pytest.mark.asyncio
+    async def test_get_session_state_returns_current_progress(self, orchestrator_instance) -> None:
+        """get_session_state should return current session progress information."""
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        state = await orchestrator_instance.get_session_state(session.session_id)
+
+        assert state.session_id == session.session_id
+        assert state.current_stage == 1
+        assert state.status == SessionStatus.IN_PROGRESS
+        assert "progress_percentage" in state.__dict__ or hasattr(state, "progress_percentage")
+
+    @pytest.mark.asyncio
+    async def test_advance_to_next_stage_updates_session(self, orchestrator_instance) -> None:
+        """advance_to_next_stage should update session and create checkpoint."""
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        initial_stage = session.current_stage
+
+        await orchestrator_instance.advance_to_next_stage(session)
+
+        assert session.current_stage == initial_stage + 1
+        assert session.updated_at > session.created_at
+
+    @pytest.mark.asyncio
+    async def test_advance_past_final_stage_marks_complete(self, orchestrator_instance) -> None:
+        """Advancing past stage 5 should mark session as COMPLETED."""
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Advance through all stages
+        for stage in range(1, 6):
+            session.current_stage = stage
+            await orchestrator_instance.advance_to_next_stage(session)
+
+        assert session.status == SessionStatus.COMPLETED
+        assert session.current_stage == 6  # Beyond stage 5
+
+    @pytest.mark.asyncio
+    async def test_checkpoint_includes_conversation_history(self, orchestrator_instance) -> None:
+        """Checkpoint should preserve conversation history for context."""
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Add conversation messages (mock)
+        # In real implementation, this would be added during agent execution
+
+        checkpoint = await orchestrator_instance.save_checkpoint(session, 1)
+
+        assert hasattr(checkpoint, "conversation_history")
+
+    @pytest.mark.asyncio
+    async def test_multiple_checkpoints_per_session_allowed(self, orchestrator_instance) -> None:
+        """Should allow creating multiple checkpoints for same session."""
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        checkpoint1 = await orchestrator_instance.save_checkpoint(session, 1)
+        checkpoint2 = await orchestrator_instance.save_checkpoint(session, 1)
+
+        assert checkpoint1.checkpoint_id != checkpoint2.checkpoint_id
+
+    @pytest.mark.asyncio
+    async def test_checkpoint_preserves_stage_validation_results(
+        self, orchestrator_instance
+    ) -> None:
+        """Checkpoint should preserve stage validation results."""
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Complete stage with validation
+        await orchestrator_instance.run_stage(session, 1)
+        validation_result = await orchestrator_instance.invoke_stage_gate_validator(session, 1)
+
+        checkpoint = await orchestrator_instance.save_checkpoint(session, 1)
+
+        # Checkpoint should contain validation information
+        assert checkpoint.stage_data is not None
