@@ -1,0 +1,126 @@
+version: '3.9'
+
+# ==============================================================================
+# U-AIP Scoping Assistant - Docker Compose Configuration
+# ==============================================================================
+
+services:
+  # ============================================================================
+  # PostgreSQL Database
+  # ============================================================================
+  uaip-db:
+    image: postgres:16-alpine
+    container_name: uaip-db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${DB_NAME:-uaip_scoping}
+      POSTGRES_USER: ${DB_USER:-uaip_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+
+    ports:
+      - "${DB_PORT:-15432}:5432"
+
+    volumes:
+      - uaip-db-data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-uaip_user} -d ${DB_NAME:-uaip_scoping}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    networks:
+      - uaip-network
+
+    labels:
+      - "com.uaip.service=database"
+      - "com.uaip.version=1.0.0"
+
+  # ============================================================================
+  # U-AIP Application (CLI)
+  # ============================================================================
+  uaip-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+
+    container_name: uaip-app
+    restart: unless-stopped
+
+    environment:
+      # Database configuration
+      DB_HOST: uaip-db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-uaip_scoping}
+      DB_USER: ${DB_USER:-uaip_user}
+      DB_PASSWORD: ${DB_PASSWORD:-changeme}
+      DB_MIN_POOL_SIZE: ${DB_MIN_POOL_SIZE:-2}
+      DB_MAX_POOL_SIZE: ${DB_MAX_POOL_SIZE:-10}
+
+      # Application configuration
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+
+      # Python configuration
+      PYTHONUNBUFFERED: 1
+      PYTHONDONTWRITEBYTECODE: 1
+
+    volumes:
+      # Persistent data
+      - uaip-app-data:/app/data
+      - uaip-app-logs:/app/logs
+      - uaip-app-charters:/app/charters
+
+      # Mount source code in development (comment out for production)
+      # - ./src:/app/src:ro
+
+    depends_on:
+      uaip-db:
+        condition: service_healthy
+
+    networks:
+      - uaip-network
+
+    # Keep container running (CLI app doesn't have a long-running process)
+    command: ["tail", "-f", "/dev/null"]
+
+    labels:
+      - "com.uaip.service=application"
+      - "com.uaip.version=1.0.0"
+
+# ==============================================================================
+# Networks
+# ==============================================================================
+networks:
+  uaip-network:
+    name: uaip-network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# ==============================================================================
+# Volumes
+# ==============================================================================
+volumes:
+  uaip-db-data:
+    name: uaip-db-data
+    driver: local
+
+  uaip-app-data:
+    name: uaip-app-data
+    driver: local
+
+  uaip-app-logs:
+    name: uaip-app-logs
+    driver: local
+
+  uaip-app-charters:
+    name: uaip-app-charters
+    driver: local
