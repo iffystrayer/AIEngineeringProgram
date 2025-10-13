@@ -530,53 +530,160 @@ async def _list_sessions_async(
         output_format: Output format (table or json)
         config: Configuration dictionary from context
     """
-    console.print(f"\n[bold]User:[/bold] {user_id}")
-    console.print(f"[bold]Status Filter:[/bold] {status}")
-    console.print(f"[bold]Limit:[/bold] {limit}")
+    import json
+    from src.database.connection import DatabaseConfig, DatabaseManager
+    from src.database.repositories.session_repository import SessionRepository
+    from src.models.schemas import SessionStatus
 
-    console.print(
-        "\n[yellow]Note:[/yellow] This is a placeholder implementation. "
-        "Full session listing will be implemented in CLI1.4."
-    )
+    # Initialize database connection
+    with console.status("[cyan]Loading sessions...", spinner="dots"):
+        db_config = DatabaseConfig(
+            host=os.getenv("DB_HOST", "localhost"),
+            port=int(os.getenv("DB_PORT", "15432")),
+            database=os.getenv("DB_NAME", "uaip_scoping"),
+            user=os.getenv("DB_USER", "uaip_user"),
+            password=os.getenv("DB_PASSWORD", "changeme"),
+        )
 
-    # Placeholder - show example table
-    table = Table(title="Your Sessions")
-    table.add_column("Session ID", style="cyan")
-    table.add_column("Project Name", style="green")
-    table.add_column("Stage", style="yellow")
-    table.add_column("Status", style="magenta")
-    table.add_column("Started", style="dim")
+        db_manager = DatabaseManager(db_config)
 
-    table.add_row(
-        "550e8400-...",
-        "Example Project",
-        "3/5",
-        "in_progress",
-        "2025-10-12",
-    )
+        try:
+            await db_manager.initialize()
+        except Exception as e:
+            console.print(
+                "\n[bold red]Error:[/bold red] Failed to connect to database",
+                style="red",
+            )
+            console.print(f"[dim]Details: {e}[/dim]")
+            console.print(
+                "\n[yellow]Troubleshooting:[/yellow]\n"
+                "  1. Ensure PostgreSQL is running: docker compose up -d uaip-db\n"
+                "  2. Verify database configuration in .env file"
+            )
+            raise
 
-    if output_format == "table":
-        console.print("\n")
-        console.print(table)
-        console.print("\n[dim]Total: 1 session(s)[/dim]")
-    else:
-        # JSON output
-        import json
-        example_data = [
-            {
-                "session_id": "550e8400-e29b-41d4-a716-446655440000",
-                "project_name": "Example Project",
-                "current_stage": 3,
-                "status": "in_progress",
-                "started_at": "2025-10-12T10:00:00",
+    try:
+        # Query sessions from database
+        session_repo = SessionRepository(db_manager)
+        all_sessions = await session_repo.get_by_user_id(user_id)
+
+        # Filter by status if not "all"
+        if status != "all":
+            status_enum = SessionStatus(status)
+            filtered_sessions = [s for s in all_sessions if s.status == status_enum]
+        else:
+            filtered_sessions = all_sessions
+
+        # Sort by last_updated_at (most recent first)
+        sorted_sessions = sorted(
+            filtered_sessions,
+            key=lambda s: s.last_updated_at,
+            reverse=True
+        )
+
+        # Apply limit
+        limited_sessions = sorted_sessions[:limit]
+
+        # Handle empty results
+        if not limited_sessions:
+            console.print("\n")
+            console.print(
+                Panel.fit(
+                    "[bold yellow]No Sessions Found[/bold yellow]\n\n"
+                    f"[dim]No sessions found for user:[/dim] [cyan]{user_id}[/cyan]\n"
+                    f"[dim]Status filter:[/dim] [cyan]{status}[/cyan]\n\n"
+                    "[bold]Get Started:[/bold]\n"
+                    "  • Start a new session: [cyan]uaip start \"Project Name\"[/cyan]",
+                    title="[bold cyan]Session List[/bold cyan]",
+                    border_style="yellow",
+                )
+            )
+            return
+
+        # Output based on format
+        if output_format == "table":
+            # Create Rich table
+            table = Table(title=f"Your Sessions ({len(limited_sessions)})")
+            table.add_column("Session ID", style="cyan", no_wrap=True)
+            table.add_column("Project Name", style="white", max_width=40)
+            table.add_column("Stage", justify="center", style="yellow")
+            table.add_column("Status", justify="center")
+            table.add_column("Started", style="dim")
+            table.add_column("Last Updated", style="dim")
+
+            # Status color mapping
+            status_colors = {
+                SessionStatus.IN_PROGRESS: "cyan",
+                SessionStatus.COMPLETED: "green",
+                SessionStatus.PAUSED: "yellow",
+                SessionStatus.ABANDONED: "red",
             }
-        ]
-        console.print(json.dumps(example_data, indent=2))
 
-    # Actual implementation will:
-    # 1. Initialize DatabaseManager
-    # 2. Query SessionRepository with filters
-    # 3. Format and display results
+            # Add rows
+            for session in limited_sessions:
+                # Truncate session ID to first 8 chars
+                short_id = str(session.session_id)[:8] + "..."
+
+                # Truncate project name if too long
+                project_name = session.project_name
+                if len(project_name) > 40:
+                    project_name = project_name[:37] + "..."
+
+                # Format stage
+                stage_str = f"{session.current_stage}/5"
+
+                # Color-code status
+                status_color = status_colors.get(session.status, "white")
+                status_str = f"[{status_color}]{session.status.value}[/{status_color}]"
+
+                # Format dates
+                started_str = session.started_at.strftime("%Y-%m-%d")
+                updated_str = session.last_updated_at.strftime("%Y-%m-%d %H:%M")
+
+                table.add_row(
+                    short_id,
+                    project_name,
+                    stage_str,
+                    status_str,
+                    started_str,
+                    updated_str
+                )
+
+            console.print("\n")
+            console.print(table)
+
+            # Show filter info and pagination hint
+            console.print(f"\n[dim]Showing {len(limited_sessions)} of {len(filtered_sessions)} sessions[/dim]")
+            if len(filtered_sessions) > limit:
+                console.print(
+                    f"[dim]Use [cyan]--limit {len(filtered_sessions)}[/cyan] to see all sessions[/dim]"
+                )
+
+            # Show helpful commands
+            console.print("\n[bold]Quick Actions:[/bold]")
+            console.print("  • Resume session: [cyan]uaip resume <session-id>[/cyan]")
+            console.print("  • Filter by status: [cyan]uaip list --status in_progress[/cyan]")
+            console.print("  • JSON output: [cyan]uaip list --format json[/cyan]")
+
+        else:
+            # JSON format
+            json_data = []
+            for session in limited_sessions:
+                json_data.append({
+                    "session_id": str(session.session_id),
+                    "user_id": session.user_id,
+                    "project_name": session.project_name,
+                    "current_stage": session.current_stage,
+                    "status": session.status.value,
+                    "started_at": session.started_at.isoformat(),
+                    "last_updated_at": session.last_updated_at.isoformat(),
+                })
+
+            console.print(json.dumps(json_data, indent=2))
+
+    finally:
+        # Clean up database connection
+        await db_manager.close()
 
 
 # ============================================================================
