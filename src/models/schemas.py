@@ -527,6 +527,19 @@ class Checkpoint:
     timestamp: datetime
     data_snapshot: dict[str, Any]
     validation_status: bool
+    checkpoint_id: str = field(default_factory=lambda: str(uuid4()))
+    session_id: UUID | None = None  # Optional session reference
+
+    # Compatibility properties for accessing nested data
+    @property
+    def stage_data(self) -> dict[int, Any]:
+        """Extract stage_data from data_snapshot."""
+        return self.data_snapshot.get("stage_data", {})
+
+    @property
+    def conversation_history(self) -> list[dict[str, Any]]:
+        """Extract conversation_history from data_snapshot."""
+        return self.data_snapshot.get("conversation_history", [])
 
 
 @dataclass
@@ -543,6 +556,17 @@ class Session:
     conversation_history: list[Message] = field(default_factory=list)
     status: SessionStatus = SessionStatus.IN_PROGRESS
     checkpoints: list[Checkpoint] = field(default_factory=list)
+
+    # Compatibility properties for test API
+    @property
+    def created_at(self) -> datetime:
+        """Alias for started_at to match test expectations."""
+        return self.started_at
+
+    @property
+    def updated_at(self) -> datetime:
+        """Alias for last_updated_at to match test expectations."""
+        return self.last_updated_at
 
 
 # ============================================================================
