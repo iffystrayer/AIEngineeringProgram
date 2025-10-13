@@ -422,27 +422,60 @@ class Stage1Agent:
         output_lower = output.lower()
         justification = ""
 
-        # Classification patterns
+        # Check for computer vision first (based on inputs containing images/video)
         if any(
-            pattern in output_lower
-            for pattern in ["yes/no", "binary", "categorical", "class", "category"]
+            text_indicator in i.lower()
+            for i in inputs
+            for text_indicator in ["image", "photo", "picture", "video", "visual"]
         ):
-            archetype = MLArchetype.CLASSIFICATION
+            archetype = MLArchetype.COMPUTER_VISION
             justification = (
-                "Classification task identified based on categorical output with "
-                "predefined classes (binary or multi-class prediction)."
+                "Computer vision task identified based on image/video input data "
+                "requiring visual processing."
             )
 
-        # Regression patterns
+        # Check for NLP (based on inputs containing text)
+        elif any(
+            text_indicator in i.lower()
+            for i in inputs
+            for text_indicator in ["text", "message", "document", "subject", "sentence", "paragraph"]
+        ):
+            archetype = MLArchetype.NLP
+            justification = (
+                "Natural language processing task identified based on text "
+                "input requiring language understanding and processing."
+            )
+
+        # Anomaly detection patterns (check before classification/regression)
         elif any(
             pattern in output_lower
-            for pattern in ["$", "value", "continuous", "amount", "score", "lifetime"]
+            for pattern in ["fraud", "anomaly", "outlier", "unusual", "detect", "is_fraudulent"]
         ):
-            archetype = MLArchetype.REGRESSION
+            archetype = MLArchetype.ANOMALY_DETECTION
             justification = (
-                "Regression task identified based on continuous numerical output "
-                "requiring prediction of a quantitative value."
+                "Anomaly detection task identified based on objective to identify "
+                "unusual patterns, outliers, or fraudulent behavior in data."
             )
+
+        # Time series patterns
+        elif any(
+            pattern in output_lower
+            for pattern in ["forecast", "future", "next", "predict", "time series"]
+        ):
+            # Check if inputs suggest time series
+            if any("historical" in i.lower() or "time" in i.lower() or "trend" in i.lower() or "season" in i.lower() for i in inputs):
+                archetype = MLArchetype.TIME_SERIES
+                justification = (
+                    "Time series forecasting task identified based on temporal "
+                    "prediction objective with historical data inputs."
+                )
+            else:
+                # Default to regression for numeric predictions
+                archetype = MLArchetype.REGRESSION
+                justification = (
+                    "Regression task (default for numeric prediction without clear "
+                    "time series indicators)."
+                )
 
         # Clustering patterns
         elif any(
@@ -466,70 +499,26 @@ class Stage1Agent:
                 "items from a catalog based on user preferences."
             )
 
-        # Anomaly detection patterns
+        # Classification patterns
         elif any(
             pattern in output_lower
-            for pattern in ["fraud", "anomaly", "outlier", "unusual", "detect"]
+            for pattern in ["yes/no", "binary", "categorical", "class", "category", "ticket"]
         ):
-            archetype = MLArchetype.ANOMALY_DETECTION
+            archetype = MLArchetype.CLASSIFICATION
             justification = (
-                "Anomaly detection task identified based on objective to identify "
-                "unusual patterns or outliers in data."
+                "Classification task identified based on categorical output with "
+                "predefined classes (binary or multi-class prediction)."
             )
 
-        # Time series patterns
+        # Regression patterns
         elif any(
             pattern in output_lower
-            for pattern in ["forecast", "future", "next", "predict", "time series"]
+            for pattern in ["$", "value", "continuous", "amount", "score", "lifetime"]
         ):
-            # Check if inputs suggest time series
-            if any("historical" in i.lower() or "time" in i.lower() for i in inputs):
-                archetype = MLArchetype.TIME_SERIES
-                justification = (
-                    "Time series forecasting task identified based on temporal "
-                    "prediction objective with historical data inputs."
-                )
-            else:
-                # Default to regression for numeric predictions
-                archetype = MLArchetype.REGRESSION
-                justification = (
-                    "Regression task (default for numeric prediction without clear "
-                    "time series indicators)."
-                )
-
-        # NLP patterns
-        elif any(
-            pattern in output_lower
-            for pattern in ["text", "message", "category", "ticket", "sentiment"]
-        ):
-            # Check if inputs are text
-            if any(
-                text_indicator in i.lower()
-                for i in inputs
-                for text_indicator in ["text", "message", "document", "subject"]
-            ):
-                archetype = MLArchetype.NLP
-                justification = (
-                    "Natural language processing task identified based on text "
-                    "input and language understanding objective."
-                )
-            else:
-                archetype = MLArchetype.CLASSIFICATION
-                justification = (
-                    "Classification task (text output but non-text inputs suggest "
-                    "standard categorical classification)."
-                )
-
-        # Computer vision patterns
-        elif any(
-            text_indicator in i.lower()
-            for i in inputs
-            for text_indicator in ["image", "photo", "picture", "video", "visual"]
-        ):
-            archetype = MLArchetype.COMPUTER_VISION
+            archetype = MLArchetype.REGRESSION
             justification = (
-                "Computer vision task identified based on image/video input data "
-                "requiring visual processing."
+                "Regression task identified based on continuous numerical output "
+                "requiring prediction of a quantitative value."
             )
 
         else:
@@ -715,7 +704,7 @@ class Stage1Agent:
                     access_method_issues=[],
                 ),
             ),
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(),
             version="1.0",
         )
 

@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # Conditional import for TDD - Stage1Agent may not exist yet
 try:
-    from src.agents.stage1_agent import Stage1Agent
+    from src.agents.stage1_business_translation import Stage1Agent
 
     AGENT_AVAILABLE = True
 except ImportError:
