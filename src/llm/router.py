@@ -1,0 +1,353 @@
+"""
+LLM Router - Provider Factory and Intelligent Routing
+
+Manages LLM provider selection, fallback chains, and cost optimization.
+
+Features:
+- Dynamic provider instantiation from configuration
+- Intelligent routing based on task requirements
+- Automatic fallback on provider failures
+- Cost optimization (use cheaper models for simple tasks)
+- Rate limit handling across providers
+"""
+
+import logging
+from typing import Any, Optional
+
+from src.llm.base import (
+    BaseLLMProvider,
+    LLMError,
+    LLMProvider,
+    LLMRequest,
+    LLMResponse,
+    ModelTier,
+    ProviderCapabilities,
+    PROVIDER_CAPABILITIES,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class LLMRouter:
+    """
+    Factory and router for LLM providers.
+
+    Handles provider instantiation, intelligent routing, and fallback chains.
+    """
+
+    def __init__(self, config: dict[str, Any]):
+        """
+        Initialize LLM Router.
+
+        Args:
+            config: Configuration dictionary with provider settings
+                {
+                    "default_provider": "anthropic",
+                    "default_model": "claude-3-sonnet",
+                    "providers": {
+                        "anthropic": {
+                            "api_key": "sk-...",
+                            "models": {"fast": "claude-3-haiku", "balanced": "claude-3-sonnet"}
+                        },
+                        "openai": {
+                            "api_key": "sk-...",
+                            "models": {"fast": "gpt-3.5-turbo", "balanced": "gpt-4"}
+                        },
+                        "ollama": {
+                            "base_url": "http://localhost:11434",
+                            "models": {"balanced": "llama3"}
+                        }
+                    },
+                    "fallback_chain": ["anthropic", "openai", "ollama"],
+                    "cost_optimization": true,
+                    "rate_limit_strategy": "exponential_backoff"
+                }
+        """
+        self.config = config
+        self.providers: dict[str, BaseLLMProvider] = {}
+        self.default_provider_name = config.get("default_provider", "anthropic")
+        self.default_model = config.get("default_model")
+        self.fallback_chain = config.get("fallback_chain", [self.default_provider_name])
+        self.cost_optimization_enabled = config.get("cost_optimization", False)
+
+        # Initialize providers
+        self._initialize_providers()
+
+        logger.info(
+            f"LLMRouter initialized with default provider: {self.default_provider_name}"
+        )
+
+    def _initialize_providers(self) -> None:
+        """Initialize all configured LLM providers."""
+        provider_configs = self.config.get("providers", {})
+
+        for provider_name, provider_config in provider_configs.items():
+            try:
+                provider = self._create_provider(provider_name, provider_config)
+                self.providers[provider_name] = provider
+                logger.info(f"Initialized provider: {provider_name}")
+            except Exception as e:
+                logger.error(f"Failed to initialize provider {provider_name}: {e}")
+
+    def _create_provider(
+        self, provider_name: str, provider_config: dict[str, Any]
+    ) -> BaseLLMProvider:
+        """
+        Create a provider instance based on configuration.
+
+        Args:
+            provider_name: Name of the provider (anthropic, openai, etc.)
+            provider_config: Provider-specific configuration
+
+        Returns:
+            Instantiated provider
+
+        Raises:
+            ValueError: If provider is not supported
+        """
+        # Import provider implementations dynamically
+        if provider_name == "anthropic":
+            from src.llm.providers.anthropic_provider import AnthropicProvider
+
+            return AnthropicProvider(
+                api_key=provider_config.get("api_key"),
+                default_model=provider_config.get("default_model", "claude-3-sonnet"),
+                **provider_config,
+            )
+
+        elif provider_name == "openai":
+            from src.llm.providers.openai_provider import OpenAIProvider
+
+            return OpenAIProvider(
+                api_key=provider_config.get("api_key"),
+                default_model=provider_config.get("default_model", "gpt-4"),
+                **provider_config,
+            )
+
+        elif provider_name == "ollama":
+            from src.llm.providers.ollama_provider import OllamaProvider
+
+            return OllamaProvider(
+                base_url=provider_config.get("base_url", "http://localhost:11434"),
+                default_model=provider_config.get("default_model", "llama3"),
+                **provider_config,
+            )
+
+        elif provider_name == "google":
+            from src.llm.providers.google_provider import GoogleProvider
+
+            return GoogleProvider(
+                api_key=provider_config.get("api_key"),
+                default_model=provider_config.get("default_model", "gemini-pro"),
+                **provider_config,
+            )
+
+        else:
+            raise ValueError(f"Unsupported provider: {provider_name}")
+
+    async def route(
+        self,
+        prompt: str | list[dict[str, str]],
+        context: Optional[Any] = None,
+        model_tier: ModelTier = ModelTier.BALANCED,
+        provider: Optional[str] = None,
+        **kwargs,
+    ) -> LLMResponse:
+        """
+        Route request to appropriate LLM provider with intelligent fallback.
+
+        Args:
+            prompt: User prompt (string or message list)
+            context: Optional context object for metadata
+            model_tier: Desired model capability tier (fast, balanced, powerful)
+            provider: Specific provider to use (bypasses intelligent routing)
+            **kwargs: Additional parameters for LLM request
+
+        Returns:
+            LLMResponse from the selected provider
+
+        Raises:
+            LLMError: If all providers in fallback chain fail
+        """
+        # Convert prompt to standardized request
+        request = self._build_request(prompt, model_tier, **kwargs)
+
+        # Determine provider order (specific provider or fallback chain)
+        if provider:
+            provider_order = [provider]
+        elif self.cost_optimization_enabled:
+            provider_order = self._optimize_provider_selection(request, model_tier)
+        else:
+            provider_order = self.fallback_chain
+
+        # Try providers in order
+        last_error = None
+        for provider_name in provider_order:
+            if provider_name not in self.providers:
+                logger.warning(f"Provider {provider_name} not configured, skipping")
+                continue
+
+            try:
+                provider_instance = self.providers[provider_name]
+                logger.debug(
+                    f"Routing request to {provider_name} with model {request.model}"
+                )
+
+                response = await provider_instance.complete(request)
+                response.provider = provider_name
+
+                logger.info(
+                    f"Request completed by {provider_name}: "
+                    f"{response.total_tokens} tokens, {response.latency_ms}ms"
+                )
+
+                return response
+
+            except Exception as e:
+                logger.warning(
+                    f"Provider {provider_name} failed: {e}. Trying next provider..."
+                )
+                last_error = e
+                continue
+
+        # All providers failed
+        error_msg = (
+            f"All providers in fallback chain failed. Last error: {last_error}"
+        )
+        logger.error(error_msg)
+        raise LLMError(
+            error_type="all_providers_failed",
+            message=error_msg,
+            provider="router",
+        )
+
+    def _build_request(
+        self,
+        prompt: str | list[dict[str, str]],
+        model_tier: ModelTier,
+        **kwargs,
+    ) -> LLMRequest:
+        """
+        Build standardized LLM request from prompt.
+
+        Args:
+            prompt: User prompt or message list
+            model_tier: Model tier to use
+            **kwargs: Additional request parameters
+
+        Returns:
+            Standardized LLMRequest
+        """
+        from src.llm.base import LLMMessage
+
+        # Convert prompt to messages
+        if isinstance(prompt, str):
+            messages = [LLMMessage(role="user", content=prompt)]
+        elif isinstance(prompt, list):
+            messages = [
+                LLMMessage(role=msg.get("role", "user"), content=msg.get("content", ""))
+                for msg in prompt
+            ]
+        else:
+            raise ValueError(f"Invalid prompt type: {type(prompt)}")
+
+        # Select model based on tier and provider
+        model = self._select_model_for_tier(model_tier)
+
+        return LLMRequest(
+            messages=messages,
+            model=model,
+            temperature=kwargs.get("temperature", 0.7),
+            max_tokens=kwargs.get("max_tokens", 2000),
+            stream=kwargs.get("stream", False),
+            **kwargs,
+        )
+
+    def _select_model_for_tier(self, model_tier: ModelTier) -> str:
+        """
+        Select appropriate model for the given tier.
+
+        Args:
+            model_tier: Desired capability tier
+
+        Returns:
+            Model identifier
+        """
+        provider_config = self.config.get("providers", {}).get(
+            self.default_provider_name, {}
+        )
+        models = provider_config.get("models", {})
+
+        # Map tiers to model keys
+        tier_map = {
+            ModelTier.FAST: "fast",
+            ModelTier.BALANCED: "balanced",
+            ModelTier.POWERFUL: "powerful",
+            ModelTier.LOCAL: "local",
+        }
+
+        model_key = tier_map.get(model_tier, "balanced")
+        return models.get(model_key, self.default_model)
+
+    def _optimize_provider_selection(
+        self, request: LLMRequest, model_tier: ModelTier
+    ) -> list[str]:
+        """
+        Optimize provider selection based on cost, capabilities, and requirements.
+
+        Args:
+            request: LLM request
+            model_tier: Desired model tier
+
+        Returns:
+            Ordered list of providers to try
+        """
+        # For now, use default fallback chain
+        # TODO: Implement intelligent cost optimization:
+        # - Use cheaper providers for simple tasks
+        # - Consider latency requirements
+        # - Check provider capabilities match request needs
+        # - Factor in current rate limit status
+
+        return self.fallback_chain
+
+    async def validate_all_providers(self) -> dict[str, bool]:
+        """
+        Validate credentials for all configured providers.
+
+        Returns:
+            Dictionary mapping provider names to validation status
+        """
+        results = {}
+
+        for provider_name, provider in self.providers.items():
+            try:
+                is_valid = await provider.validate_credentials()
+                results[provider_name] = is_valid
+                logger.info(f"Provider {provider_name} validation: {is_valid}")
+            except Exception as e:
+                logger.error(f"Provider {provider_name} validation failed: {e}")
+                results[provider_name] = False
+
+        return results
+
+    def get_provider_info(self) -> dict[str, Any]:
+        """
+        Get information about all configured providers.
+
+        Returns:
+            Dictionary with provider information
+        """
+        return {
+            "default_provider": self.default_provider_name,
+            "default_model": self.default_model,
+            "active_providers": list(self.providers.keys()),
+            "fallback_chain": self.fallback_chain,
+            "cost_optimization": self.cost_optimization_enabled,
+        }
+
+    def __repr__(self) -> str:
+        return (
+            f"LLMRouter(default={self.default_provider_name}, "
+            f"providers={list(self.providers.keys())})"
+        )

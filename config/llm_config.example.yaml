@@ -1,0 +1,128 @@
+# LLM Provider Configuration Example
+# Copy this to llm_config.yaml and add your API keys
+
+# Default provider to use (can be overridden per request)
+default_provider: "anthropic"
+
+# Default model within the provider
+default_model: "claude-3-sonnet"
+
+# Fallback chain: providers to try in order if primary fails
+fallback_chain:
+  - "anthropic"
+  - "openai"
+  - "ollama"  # Local fallback (no API key needed)
+
+# Enable cost optimization (use cheaper models for simple tasks)
+cost_optimization: true
+
+# Rate limit handling strategy
+rate_limit_strategy: "exponential_backoff"
+
+# Provider configurations
+providers:
+  # Anthropic Claude (recommended for U-AIP - best reasoning)
+  anthropic:
+    api_key: "${ANTHROPIC_API_KEY}"  # Set via environment variable
+    default_model: "claude-3-sonnet"
+    timeout: 30
+    max_retries: 3
+    models:
+      fast: "claude-3-haiku"         # Fastest, cheapest (~$0.25/$1.25 per 1M tokens)
+      balanced: "claude-3-sonnet"    # Best balance (~$3/$15 per 1M tokens)
+      powerful: "claude-3-opus"      # Most capable (~$15/$75 per 1M tokens)
+
+  # OpenAI GPT (fallback option)
+  openai:
+    api_key: "${OPENAI_API_KEY}"
+    default_model: "gpt-4"
+    timeout: 30
+    max_retries: 3
+    models:
+      fast: "gpt-3.5-turbo"          # Fastest (~$0.50/$1.50 per 1M tokens)
+      balanced: "gpt-4"              # Balanced (~$30/$60 per 1M tokens)
+      powerful: "gpt-4-turbo"        # Most capable (~$10/$30 per 1M tokens)
+
+  # Ollama (local models - free, private, no API key needed)
+  ollama:
+    base_url: "http://localhost:11434"
+    default_model: "llama3"
+    timeout: 60  # Local can be slower
+    max_retries: 1
+    models:
+      balanced: "llama3"             # Meta Llama 3 (8B/70B)
+      local: "mistral"               # Mistral 7B
+
+  # Google Gemini (alternative)
+  google:
+    api_key: "${GOOGLE_API_KEY}"
+    default_model: "gemini-pro"
+    timeout: 30
+    max_retries: 3
+    models:
+      fast: "gemini-pro"
+      powerful: "gemini-ultra"
+
+# Model tier usage by task type
+# This enables automatic model selection based on task complexity
+task_routing:
+  # Simple validation tasks: use fast models
+  response_quality_validation: "fast"
+  feature_validation: "fast"
+
+  # Interview questions: use balanced models
+  stage_interviews: "balanced"
+  problem_statement_generation: "balanced"
+
+  # Complex reasoning: use powerful models
+  ethical_risk_assessment: "powerful"
+  consistency_checking: "powerful"
+  final_charter_synthesis: "powerful"
+
+# Privacy settings
+privacy:
+  # Use local models (Ollama) for sensitive data
+  use_local_for_sensitive: true
+  sensitive_providers: ["ollama"]
+
+  # Avoid sending certain data types to cloud
+  cloud_exclusions:
+    - "customer_pii"
+    - "financial_data"
+    - "health_records"
+
+# Cost management
+cost_management:
+  # Maximum spend per session (USD)
+  max_session_cost: 5.00
+
+  # Alert thresholds
+  cost_alert_threshold: 2.50
+
+  # Track usage per project
+  enable_cost_tracking: true
+
+# Performance tuning
+performance:
+  # Use streaming for long responses
+  prefer_streaming: true
+
+  # Parallel requests for independent tasks
+  max_concurrent_requests: 5
+
+  # Cache responses for identical prompts
+  enable_response_caching: true
+  cache_ttl_seconds: 3600
+
+# Monitoring and logging
+monitoring:
+  # Log all LLM interactions
+  log_requests: true
+  log_responses: true
+
+  # Track latency and token usage
+  track_metrics: true
+
+  # Store request/response history
+  enable_history: true
+  history_retention_days: 90
