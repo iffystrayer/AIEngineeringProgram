@@ -557,3 +557,536 @@ class TestStage1AgentIntegration:
         """Test complete Stage 1 workflow from start to ProblemStatement generation."""
         # Comprehensive integration test
         pytest.skip("Comprehensive integration test - implement when all components ready")
+
+
+# ============================================================================
+# EXTENDED IMPLEMENTATION TESTS (S1-1: Enhanced for detailed TDD)
+# ============================================================================
+
+
+@pytest.mark.skipif(not AGENT_AVAILABLE, reason="Stage1Agent not implemented yet")
+class TestStage1QuestionGroupExecution:
+    """Detailed tests for each question group's execution."""
+
+    @pytest.mark.asyncio
+    async def test_question_group_1_core_business_objective(self, stage1_agent_instance) -> None:
+        """Test Question Group 1: Core Business Objective execution."""
+        from unittest.mock import AsyncMock
+
+        # Mock LLM responses for Group 1 questions
+        stage1_agent_instance.llm_router.route = AsyncMock(
+            return_value={
+                "business_problem": "High customer churn impacting revenue",
+                "importance": "30% annual customer loss = $2M revenue impact",
+                "success_criteria": "Reduce churn from 30% to 15% in 12 months",
+            }
+        )
+
+        responses = await stage1_agent_instance.ask_question_group(group_number=1)
+
+        # Verify all key business objective components are collected
+        assert len(responses) >= 3
+        assert any("business_problem" in r or "problem" in r for r in responses)
+        assert any("importance" in r or "why" in r for r in responses)
+        assert any("success" in r for r in responses)
+
+    @pytest.mark.asyncio
+    async def test_question_group_2_ai_suitability(self, stage1_agent_instance) -> None:
+        """Test Question Group 2: AI Suitability Assessment execution."""
+        from unittest.mock import AsyncMock
+
+        # Mock responses for AI suitability questions
+        stage1_agent_instance.llm_router.route = AsyncMock(
+            return_value={
+                "non_ai_alternatives": "Tried rule-based scoring, too simple",
+                "ai_necessity": "Complex patterns require ML pattern recognition",
+                "suitability": "Classification task with historical labeled data",
+            }
+        )
+
+        responses = await stage1_agent_instance.ask_question_group(group_number=2)
+
+        # Verify AI justification is collected
+        assert len(responses) >= 3
+        assert any("alternative" in r.lower() or "non-ai" in r.lower() for r in responses)
+        assert any("necessity" in r.lower() or "why" in r.lower() for r in responses)
+
+    @pytest.mark.asyncio
+    async def test_question_group_3_problem_definition(self, stage1_agent_instance) -> None:
+        """Test Question Group 3: Problem Definition execution."""
+        from unittest.mock import AsyncMock
+
+        # Mock responses for problem definition questions
+        stage1_agent_instance.llm_router.route = AsyncMock(
+            return_value={
+                "input_features": "customer_age, tenure, purchases, support_tickets",
+                "target_output": "will_churn (binary: Yes/No)",
+                "ml_task_type": "Binary classification",
+            }
+        )
+
+        responses = await stage1_agent_instance.ask_question_group(group_number=3)
+
+        # Verify input/output definition is collected
+        assert len(responses) >= 3
+        assert any("input" in r.lower() or "feature" in r.lower() for r in responses)
+        assert any("output" in r.lower() or "predict" in r.lower() for r in responses)
+        assert any("type" in r.lower() or "task" in r.lower() for r in responses)
+
+    @pytest.mark.asyncio
+    async def test_question_group_4_scope_boundaries(self, stage1_agent_instance) -> None:
+        """Test Question Group 4: Scope & Boundaries execution."""
+        from unittest.mock import AsyncMock
+
+        # Mock responses for scope questions
+        stage1_agent_instance.llm_router.route = AsyncMock(
+            return_value={
+                "exclusions": "New customers <3 months, enterprise accounts",
+                "constraints": "6 month timeline, $100K budget",
+                "edge_cases": "Seasonal businesses, dormant accounts",
+            }
+        )
+
+        responses = await stage1_agent_instance.ask_question_group(group_number=4)
+
+        # Verify scope boundaries are collected
+        assert len(responses) >= 3
+        assert any("not" in r.lower() or "exclusion" in r.lower() for r in responses)
+        assert any("constraint" in r.lower() or "limit" in r.lower() for r in responses)
+
+
+@pytest.mark.skipif(not AGENT_AVAILABLE, reason="Stage1Agent not implemented yet")
+class TestStage1MLArchetypeLogic:
+    """Detailed tests for ML archetype determination logic."""
+
+    @pytest.mark.asyncio
+    async def test_archetype_clustering_identification(self, stage1_agent_instance) -> None:
+        """Should identify CLUSTERING archetype correctly."""
+        inputs = ["purchase_history", "browsing_behavior", "demographics"]
+        output = "customer_segments (unlabeled groups)"
+
+        archetype = await stage1_agent_instance.determine_ml_archetype(
+            inputs=inputs, output=output
+        )
+
+        assert archetype == MLArchetype.CLUSTERING
+
+    @pytest.mark.asyncio
+    async def test_archetype_recommendation_identification(self, stage1_agent_instance) -> None:
+        """Should identify RECOMMENDATION archetype correctly."""
+        inputs = ["user_history", "item_features", "user_preferences"]
+        output = "recommended_products (list of items)"
+
+        archetype = await stage1_agent_instance.determine_ml_archetype(
+            inputs=inputs, output=output
+        )
+
+        assert archetype == MLArchetype.RECOMMENDATION
+
+    @pytest.mark.asyncio
+    async def test_archetype_anomaly_detection_identification(
+        self, stage1_agent_instance
+    ) -> None:
+        """Should identify ANOMALY_DETECTION archetype correctly."""
+        inputs = ["transaction_amount", "location", "time", "device"]
+        output = "is_fraudulent (anomaly score)"
+
+        archetype = await stage1_agent_instance.determine_ml_archetype(
+            inputs=inputs, output=output
+        )
+
+        assert archetype == MLArchetype.ANOMALY_DETECTION
+
+    @pytest.mark.asyncio
+    async def test_archetype_time_series_identification(self, stage1_agent_instance) -> None:
+        """Should identify TIME_SERIES archetype correctly."""
+        inputs = ["historical_sales", "seasonality", "trends"]
+        output = "future_sales (next 30 days)"
+
+        archetype = await stage1_agent_instance.determine_ml_archetype(
+            inputs=inputs, output=output
+        )
+
+        assert archetype == MLArchetype.TIME_SERIES
+
+    @pytest.mark.asyncio
+    async def test_archetype_nlp_identification(self, stage1_agent_instance) -> None:
+        """Should identify NLP archetype correctly."""
+        inputs = ["customer_message_text", "subject_line"]
+        output = "ticket_category (support, sales, billing)"
+
+        archetype = await stage1_agent_instance.determine_ml_archetype(
+            inputs=inputs, output=output
+        )
+
+        assert archetype == MLArchetype.NLP
+
+    @pytest.mark.asyncio
+    async def test_archetype_computer_vision_identification(self, stage1_agent_instance) -> None:
+        """Should identify COMPUTER_VISION archetype correctly."""
+        inputs = ["product_image", "inspection_photo"]
+        output = "defect_detected (Yes/No)"
+
+        archetype = await stage1_agent_instance.determine_ml_archetype(
+            inputs=inputs, output=output
+        )
+
+        assert archetype == MLArchetype.COMPUTER_VISION
+
+    @pytest.mark.asyncio
+    async def test_archetype_justification_provided(self, stage1_agent_instance) -> None:
+        """Agent should provide justification for archetype selection."""
+        inputs = ["customer_age", "purchase_history"]
+        output = "will_churn (Yes/No)"
+
+        archetype, justification = await stage1_agent_instance.determine_ml_archetype(
+            inputs=inputs, output=output, return_justification=True
+        )
+
+        assert archetype == MLArchetype.CLASSIFICATION
+        assert isinstance(justification, str)
+        assert len(justification) > 50  # Substantive justification
+        assert "classification" in justification.lower()
+
+
+@pytest.mark.skipif(not AGENT_AVAILABLE, reason="Stage1Agent not implemented yet")
+class TestStage1FeatureValidation:
+    """Detailed tests for feature availability validation."""
+
+    @pytest.mark.asyncio
+    async def test_all_features_available_validation(self, stage1_agent_instance) -> None:
+        """Should validate when all features are production-ready."""
+        features = [
+            {
+                "name": "customer_age",
+                "source": "CRM",
+                "available_at_inference": True,
+                "latency_ms": 50,
+            },
+            {
+                "name": "purchase_count",
+                "source": "Transaction DB",
+                "available_at_inference": True,
+                "latency_ms": 100,
+            },
+        ]
+
+        report = await stage1_agent_instance.validate_feature_availability(features)
+
+        assert report.all_features_available is True
+        assert len(report.unavailable_features) == 0
+        assert len(report.latency_concerns) == 0
+
+    @pytest.mark.asyncio
+    async def test_feature_unavailable_at_inference(self, stage1_agent_instance) -> None:
+        """Should flag features not available at inference time."""
+        features = [
+            {
+                "name": "customer_age",
+                "source": "CRM",
+                "available_at_inference": True,
+                "latency_ms": 50,
+            },
+            {
+                "name": "next_month_purchases",  # Future leakage!
+                "source": "Future data",
+                "available_at_inference": False,
+                "latency_ms": None,
+            },
+        ]
+
+        report = await stage1_agent_instance.validate_feature_availability(features)
+
+        assert report.all_features_available is False
+        assert "next_month_purchases" in report.unavailable_features
+        assert len(report.unavailable_features) == 1
+
+    @pytest.mark.asyncio
+    async def test_high_latency_feature_warning(self, stage1_agent_instance) -> None:
+        """Should warn about features with unacceptable latency."""
+        features = [
+            {
+                "name": "customer_age",
+                "source": "CRM",
+                "available_at_inference": True,
+                "latency_ms": 50,
+            },
+            {
+                "name": "computed_aggregate",
+                "source": "Data Warehouse",
+                "available_at_inference": True,
+                "latency_ms": 5000,  # 5 seconds - too slow!
+            },
+        ]
+
+        report = await stage1_agent_instance.validate_feature_availability(features)
+
+        assert len(report.latency_concerns) > 0
+        assert any("computed_aggregate" in concern for concern in report.latency_concerns)
+
+    @pytest.mark.asyncio
+    async def test_feature_access_method_issues(self, stage1_agent_instance) -> None:
+        """Should identify features with problematic access methods."""
+        features = [
+            {
+                "name": "customer_age",
+                "source": "CRM API",
+                "available_at_inference": True,
+                "latency_ms": 50,
+                "access_method": "REST API",
+            },
+            {
+                "name": "manual_field",
+                "source": "Requires manual lookup",
+                "available_at_inference": True,
+                "latency_ms": None,
+                "access_method": "manual",
+            },
+        ]
+
+        report = await stage1_agent_instance.validate_feature_availability(features)
+
+        assert len(report.access_method_issues) > 0
+        assert any("manual_field" in issue for issue in report.access_method_issues)
+
+
+@pytest.mark.skipif(not AGENT_AVAILABLE, reason="Stage1Agent not implemented yet")
+class TestStage1QualityLoopBehavior:
+    """Detailed tests for quality loop behavior and edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_quality_loop_first_attempt_success(self, stage1_agent_instance) -> None:
+        """Should accept high-quality response on first attempt."""
+        from unittest.mock import AsyncMock
+
+        # Mock high-quality response
+        stage1_agent_instance.llm_router.route = AsyncMock(
+            return_value={
+                "quality_score": 9,
+                "is_acceptable": True,
+                "issues": [],
+                "suggested_followups": [],
+            }
+        )
+
+        response = "Reduce customer churn from 30% to 15% within 12 months, measured by 30-day retention rate, to save $2M in annual recurring revenue."
+
+        result, attempts = await stage1_agent_instance.validate_response_quality(
+            question="What is your business objective?",
+            response=response,
+            return_attempt_count=True,
+        )
+
+        assert result.is_acceptable is True
+        assert attempts == 1
+
+    @pytest.mark.asyncio
+    async def test_quality_loop_retry_with_improvement(self, stage1_agent_instance) -> None:
+        """Should retry and eventually accept improved response."""
+        from unittest.mock import AsyncMock
+
+        # Mock: first attempt fails, second succeeds
+        quality_results = [
+            {
+                "quality_score": 5,
+                "is_acceptable": False,
+                "issues": ["Too vague"],
+                "suggested_followups": ["Please specify the metric"],
+            },
+            {
+                "quality_score": 8,
+                "is_acceptable": True,
+                "issues": [],
+                "suggested_followups": [],
+            },
+        ]
+
+        stage1_agent_instance.llm_router.route = AsyncMock(side_effect=quality_results)
+
+        response_1 = "Improve customer retention"
+        response_2 = "Reduce churn by 15% in 6 months"
+
+        # First attempt (should fail)
+        result_1, attempts_1 = await stage1_agent_instance.validate_response_quality(
+            question="What is your business objective?",
+            response=response_1,
+            return_attempt_count=True,
+        )
+
+        assert result_1.is_acceptable is False
+        assert attempts_1 == 1
+
+        # Second attempt (should succeed)
+        result_2, attempts_2 = await stage1_agent_instance.validate_response_quality(
+            question="What is your business objective?",
+            response=response_2,
+            return_attempt_count=True,
+            previous_attempts=1,
+        )
+
+        assert result_2.is_acceptable is True
+        assert attempts_2 == 2
+
+    @pytest.mark.asyncio
+    async def test_quality_loop_max_attempts_escalation(self, stage1_agent_instance) -> None:
+        """Should escalate after 3 failed quality attempts."""
+        from unittest.mock import AsyncMock
+
+        # Mock 3 consecutive failures
+        stage1_agent_instance.llm_router.route = AsyncMock(
+            return_value={
+                "quality_score": 4,
+                "is_acceptable": False,
+                "issues": ["Insufficient detail"],
+                "suggested_followups": ["Please be more specific"],
+            }
+        )
+
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            result, attempt_count = await stage1_agent_instance.validate_response_quality(
+                question="What is your business objective?",
+                response="Make things better",
+                return_attempt_count=True,
+                previous_attempts=attempt - 1,
+            )
+
+            assert result.is_acceptable is False
+            assert attempt_count == attempt
+
+        # After 3 attempts, should trigger escalation
+        assert attempt_count == max_attempts
+
+        # Escalation should be handled (accept with flag or raise to human)
+        escalation_result = await stage1_agent_instance.handle_quality_escalation(
+            question="What is your business objective?",
+            best_response="Make things better",
+            attempts=max_attempts,
+        )
+
+        assert escalation_result is not None
+        assert hasattr(escalation_result, "escalated")
+        assert escalation_result.escalated is True
+
+
+@pytest.mark.skipif(not AGENT_AVAILABLE, reason="Stage1Agent not implemented yet")
+class TestStage1ProblemStatementGeneration:
+    """Detailed tests for final ProblemStatement generation."""
+
+    @pytest.mark.asyncio
+    async def test_generate_complete_problem_statement(self, stage1_agent_instance) -> None:
+        """Should generate complete ProblemStatement with all required fields."""
+        from src.models.schemas import (
+            Feature,
+            FeatureAccessibilityReport,
+            OutputDefinition,
+            ScopeDefinition,
+        )
+
+        collected_data = {
+            "business_objective": "Reduce customer churn by 15% in 12 months",
+            "ai_necessity_justification": "Complex behavioral patterns require ML",
+            "input_features": [
+                Feature(
+                    name="customer_age",
+                    data_type="int",
+                    description="Age in years",
+                    source_system="CRM",
+                    availability_in_production=True,
+                    access_latency_ms=50,
+                ),
+                Feature(
+                    name="purchase_count",
+                    data_type="int",
+                    description="Total purchases",
+                    source_system="Transaction DB",
+                    availability_in_production=True,
+                    access_latency_ms=100,
+                ),
+            ],
+            "target_output": OutputDefinition(
+                name="will_churn",
+                type="binary",
+                description="Customer will churn in next 30 days",
+                possible_values=["Yes", "No"],
+            ),
+            "ml_archetype": MLArchetype.CLASSIFICATION,
+            "ml_archetype_justification": "Binary classification problem with labeled data",
+            "scope_boundaries": ScopeDefinition(
+                in_scope=["Active customers with >3 months tenure"],
+                out_of_scope=["New customers", "Enterprise accounts"],
+                assumptions=["Historical churn patterns will continue"],
+                constraints=["6 month development timeline", "$100K budget"],
+            ),
+            "feature_availability": FeatureAccessibilityReport(
+                all_features_available=True,
+                unavailable_features=[],
+                latency_concerns=[],
+                access_method_issues=[],
+            ),
+        }
+
+        problem_statement = await stage1_agent_instance.generate_problem_statement(
+            collected_data
+        )
+
+        # Verify all required fields are present
+        assert isinstance(problem_statement, ProblemStatement)
+        assert problem_statement.business_objective is not None
+        assert problem_statement.ai_necessity_justification is not None
+        assert len(problem_statement.input_features) == 2
+        assert problem_statement.target_output is not None
+        assert problem_statement.ml_archetype == MLArchetype.CLASSIFICATION
+        assert problem_statement.ml_archetype_justification is not None
+        assert problem_statement.scope_boundaries is not None
+        assert problem_statement.feature_availability is not None
+        assert problem_statement.created_at is not None
+        assert problem_statement.version == "1.0"
+
+    @pytest.mark.asyncio
+    async def test_problem_statement_validation_before_return(
+        self, stage1_agent_instance
+    ) -> None:
+        """Should validate ProblemStatement completeness before returning."""
+        # Incomplete data (missing target_output)
+        incomplete_data = {
+            "business_objective": "Reduce churn",
+            "ai_necessity_justification": "ML needed",
+            # Missing target_output!
+            "input_features": [],
+        }
+
+        with pytest.raises(ValueError, match="Incomplete problem statement"):
+            await stage1_agent_instance.generate_problem_statement(incomplete_data)
+
+    @pytest.mark.asyncio
+    async def test_problem_statement_archetype_alignment_validation(
+        self, stage1_agent_instance
+    ) -> None:
+        """Should validate ML archetype aligns with inputs/outputs."""
+        from src.models.schemas import Feature, OutputDefinition
+
+        # Misaligned: regression output but classification archetype
+        misaligned_data = {
+            "business_objective": "Predict customer value",
+            "ai_necessity_justification": "Complex patterns",
+            "input_features": [
+                Feature(
+                    name="age",
+                    data_type="int",
+                    description="Age",
+                    source_system="CRM",
+                    availability_in_production=True,
+                )
+            ],
+            "target_output": OutputDefinition(
+                name="lifetime_value",
+                type="continuous",  # Regression output
+                description="Customer lifetime value in dollars",
+                units="USD",
+            ),
+            "ml_archetype": MLArchetype.CLASSIFICATION,  # Wrong archetype!
+        }
+
+        with pytest.raises(ValueError, match="ML archetype.*does not align"):
+            await stage1_agent_instance.generate_problem_statement(misaligned_data)
