@@ -746,7 +746,7 @@ def delete_command(ctx: click.Context, session_id: str, force: bool) -> None:
 @click.option(
     "--format",
     "output_format",
-    type=click.Choice(["pdf", "markdown", "html"], case_sensitive=False),
+    type=click.Choice(["pdf", "markdown", "json"], case_sensitive=False),
     default="pdf",
     help="Export format",
 )
@@ -771,7 +771,7 @@ def export_command(
 
     Example:
       uaip export 550e8400-e29b-41d4-a716-446655440000
-      uaip export 550e8400-e29b-41d4-a716-446655440000 --format markdown
+      uaip export 550e8400-e29b-41d4-a716-446655440000 --format markdown --output my_charter.md
     """
     # Validate UUID format
     try:
@@ -780,13 +780,153 @@ def export_command(
         console.print("[bold red]Error:[/bold red] Invalid session ID format", style="red")
         sys.exit(1)
 
-    console.print(f"[cyan]Exporting charter for session {session_id}...[/cyan]")
-    console.print(f"[bold]Format:[/bold] {output_format}")
+    # Run async export logic
+    try:
+        asyncio.run(_export_charter_async(session_uuid, output_format, output, ctx.obj))
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Export interrupted by user.[/yellow]")
+        sys.exit(0)
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}", style="red")
+        if ctx.obj.get("verbose"):
+            console.print_exception()
+        sys.exit(1)
+
+
+async def _export_charter_async(
+    session_id: UUID, output_format: str, output_path: Optional[str], config: dict
+) -> None:
+    """
+    Async implementation of charter export logic.
+
+    Args:
+        session_id: UUID of session to export
+        output_format: Export format (pdf, markdown, json)
+        output_path: Optional output file path
+        config: Configuration dictionary from context
+    """
+    import os
+    from pathlib import Path
+    from src.database.connection import DatabaseConfig, DatabaseManager
+    from src.database.repositories.charter_repository import CharterRepository
+    from src.export import CharterDocumentGenerator
 
     console.print(
-        "\n[yellow]Note:[/yellow] This is a placeholder. "
-        "Actual export will be implemented with document generation system."
+        Panel.fit(
+            "[bold cyan]U-AIP Charter Export[/bold cyan]\n"
+            f"[dim]Exporting session {session_id}...[/dim]",
+            border_style="cyan",
+        )
     )
+
+    # Initialize database connection
+    with console.status("[cyan]Connecting to database...", spinner="dots"):
+        db_config = DatabaseConfig(
+            host=os.getenv("DB_HOST", "localhost"),
+            port=int(os.getenv("DB_PORT", "15432")),
+            database=os.getenv("DB_NAME", "uaip_scoping"),
+            user=os.getenv("DB_USER", "uaip_user"),
+            password=os.getenv("DB_PASSWORD", "changeme"),
+        )
+
+        db_manager = DatabaseManager(db_config)
+
+        try:
+            await db_manager.initialize()
+        except Exception as e:
+            console.print(
+                "\n[bold red]Error:[/bold red] Failed to connect to database",
+                style="red",
+            )
+            console.print(f"[dim]Details: {e}[/dim]")
+            console.print(
+                "\n[yellow]Troubleshooting:[/yellow]\n"
+                "  1. Ensure PostgreSQL is running: docker compose up -d uaip-db\n"
+                "  2. Verify database configuration in .env file"
+            )
+            raise
+
+    try:
+        # Load charter from database
+        with console.status("[cyan]Loading charter...", spinner="dots"):
+            charter_repo = CharterRepository(db_manager)
+            charter = await charter_repo.get_charter_by_session(session_id)
+
+        if charter is None:
+            console.print(
+                f"\n[bold red]Error:[/bold red] No charter found for session {session_id}",
+                style="red",
+            )
+            console.print(
+                "\n[yellow]Note:[/yellow] Charters are created when sessions complete all 5 stages.\n"
+                "[dim]This session may not be complete yet.[/dim]\n\n"
+                "[bold]Next steps:[/bold]\n"
+                "  • Check session status: [cyan]uaip status {session_id}[/cyan]\n"
+                "  • Resume session: [cyan]uaip resume {session_id}[/cyan]"
+            )
+            sys.exit(1)
+
+        # Generate export
+        console.print(f"\n[cyan]Generating {output_format.upper()} export...[/cyan]")
+
+        with console.status(f"[cyan]Generating {output_format} document...", spinner="dots"):
+            generator = CharterDocumentGenerator()
+
+            if output_format == "markdown":
+                content = await generator.generate_markdown(charter)
+                file_extension = ".md"
+                content_bytes = content.encode('utf-8')
+            elif output_format == "pdf":
+                content_bytes = await generator.generate_pdf(charter)
+                file_extension = ".pdf"
+            else:  # json
+                content = await generator.generate_json(charter)
+                file_extension = ".json"
+                content_bytes = content.encode('utf-8')
+
+        # Determine output path
+        if output_path:
+            final_path = Path(output_path)
+        else:
+            # Default to charters/ directory
+            charters_dir = Path("charters")
+            charters_dir.mkdir(exist_ok=True)
+
+            # Sanitize project name for filename
+            safe_project_name = "".join(
+                c if c.isalnum() or c in (' ', '_', '-') else '_'
+                for c in charter.project_name
+            ).strip().replace(' ', '_')
+
+            filename = f"{safe_project_name}_{session_id}_charter{file_extension}"
+            final_path = charters_dir / filename
+
+        # Write file
+        with console.status(f"[cyan]Writing to {final_path}...", spinner="dots"):
+            if output_format in ["pdf"]:
+                final_path.write_bytes(content_bytes)
+            else:
+                final_path.write_bytes(content_bytes)
+
+        # Success message
+        console.print("\n")
+        console.print(
+            Panel.fit(
+                f"[bold green]✓ Charter Exported Successfully![/bold green]\n\n"
+                f"[bold]Project:[/bold] {charter.project_name}\n"
+                f"[bold]Format:[/bold] {output_format.upper()}\n"
+                f"[bold]Output:[/bold] {final_path.absolute()}\n"
+                f"[bold]Size:[/bold] {len(content_bytes):,} bytes\n\n"
+                f"[dim]Open with:[/dim]\n"
+                f"  {final_path.absolute()}",
+                title="[bold cyan]Export Complete[/bold cyan]",
+                border_style="green",
+            )
+        )
+
+    finally:
+        # Clean up database connection
+        await db_manager.close()
 
 
 # ============================================================================

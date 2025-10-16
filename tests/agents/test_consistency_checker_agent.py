@@ -615,6 +615,13 @@ class TestCapabilities:
         self, mock_llm_router, inconsistent_stage2_stage3_data
     ):
         """
+        Check: Is Stage 3 data available to support Stage 2 metrics?
+
+        VALIDATION RULE (FR-5.2):
+        - Stage 2 defines required model metrics (e.g., Precision requires labels)
+        - Stage 3 must have data sources that support those metrics
+        - Example failure: Supervised learning metric but no labeled data
+        """
         # Configure mock for data availability mismatch
         mock_llm_router.route.return_value = {
             "is_consistent": False,
@@ -629,13 +636,6 @@ class TestCapabilities:
             "recommendations": []
         }
 
-        Check: Is Stage 3 data available to support Stage 2 metrics?
-
-        VALIDATION RULE (FR-5.2):
-        - Stage 2 defines required model metrics (e.g., Precision requires labels)
-        - Stage 3 must have data sources that support those metrics
-        - Example failure: Supervised learning metric but no labeled data
-        """
         agent = ConsistencyCheckerAgent(llm_router=mock_llm_router)
 
         report = await agent.check_consistency(inconsistent_stage2_stage3_data)
@@ -651,6 +651,13 @@ class TestCapabilities:
         self, mock_llm_router, inconsistent_stage3_stage4_data
     ):
         """
+        Check: Can Stage 4 users actually access Stage 3 data sources?
+
+        VALIDATION RULE (FR-5.3):
+        - Stage 3 defines data sources with access restrictions
+        - Stage 4 user personas must have appropriate access levels
+        - Example failure: Model uses HR data but users are in Sales
+        """
         # Configure mock for user access mismatch
         mock_llm_router.route.return_value = {
             "is_consistent": False,
@@ -665,13 +672,6 @@ class TestCapabilities:
             "recommendations": []
         }
 
-        Check: Can Stage 4 users actually access Stage 3 data sources?
-
-        VALIDATION RULE (FR-5.3):
-        - Stage 3 defines data sources with access restrictions
-        - Stage 4 user personas must have appropriate access levels
-        - Example failure: Model uses HR data but users are in Sales
-        """
         agent = ConsistencyCheckerAgent(llm_router=mock_llm_router)
 
         report = await agent.check_consistency(inconsistent_stage3_stage4_data)
@@ -687,6 +687,13 @@ class TestCapabilities:
         self, mock_llm_router, inconsistent_stage4_stage5_data
     ):
         """
+        Check: Do Stage 5 ethical risks match project scope from Stages 1-4?
+
+        VALIDATION RULE (FR-5.4):
+        - Stages 1-4 define project scope, impact, and decision criticality
+        - Stage 5 ethical risk severity must match that scope
+        - Example failure: Low-stakes marketing but life-threatening risk assessment
+        """
         # Configure mock for ethical risk mismatch
         mock_llm_router.route.return_value = {
             "is_consistent": False,
@@ -701,13 +708,6 @@ class TestCapabilities:
             "recommendations": []
         }
 
-        Check: Do Stage 5 ethical risks match project scope from Stages 1-4?
-
-        VALIDATION RULE (FR-5.4):
-        - Stages 1-4 define project scope, impact, and decision criticality
-        - Stage 5 ethical risk severity must match that scope
-        - Example failure: Low-stakes marketing but life-threatening risk assessment
-        """
         agent = ConsistencyCheckerAgent(llm_router=mock_llm_router)
 
         report = await agent.check_consistency(inconsistent_stage4_stage5_data)
@@ -721,6 +721,13 @@ class TestCapabilities:
     @pytest.mark.asyncio
     async def test_overall_project_feasibility_check(self, mock_llm_router):
         """
+        Check: Is project feasible given ALL constraints? (FR-5.5)
+
+        VALIDATION RULE:
+        - Synthesize constraints from all stages
+        - Detect show-stopper combinations even if individual stages pass
+        - Example: Real-time requirement + batch data pipeline + high accuracy
+        """
         # Configure mock for low feasibility
         mock_llm_router.route.return_value = {
             "is_consistent": False,
@@ -733,13 +740,7 @@ class TestCapabilities:
             }],
             "recommendations": []
         }
-        Check: Is project feasible given ALL constraints? (FR-5.5)
 
-        VALIDATION RULE:
-        - Synthesize constraints from all stages
-        - Detect show-stopper combinations even if individual stages pass
-        - Example: Real-time requirement + batch data pipeline + high accuracy
-        """
         # Create data with subtle feasibility issue
         infeasible_data = {
             "stage1": {
@@ -771,6 +772,10 @@ class TestCapabilities:
     @pytest.mark.asyncio
     async def test_detects_rare_event_prediction_without_data(self, mock_llm_router):
         """
+        RED FLAG: Claiming to predict rare events but having no data on those events.
+
+        This is a classic ML project failure mode that consistency checking should catch.
+        """
         # Configure mock for rare event issue
         mock_llm_router.route.return_value = {
             "is_consistent": False,
@@ -783,10 +788,7 @@ class TestCapabilities:
             }],
             "recommendations": []
         }
-        RED FLAG: Claiming to predict rare events but having no data on those events.
 
-        This is a classic ML project failure mode that consistency checking should catch.
-        """
         rare_event_data = {
             "stage1": {
                 "business_objective": "Predict equipment failure events",
@@ -816,6 +818,8 @@ class TestCapabilities:
     @pytest.mark.asyncio
     async def test_detects_realtime_requirement_with_batch_pipeline(self, mock_llm_router):
         """
+        RED FLAG: Requiring real-time predictions but having batch data pipelines.
+        """
         # Configure mock for latency mismatch
         mock_llm_router.route.return_value = {
             "is_consistent": False,
@@ -829,8 +833,7 @@ class TestCapabilities:
             "risk_areas": [],
             "recommendations": []
         }
-        RED FLAG: Requiring real-time predictions but having batch data pipelines.
-        """
+
         realtime_batch_data = {
             "stage1": {
                 "target_output": {
@@ -858,6 +861,8 @@ class TestCapabilities:
     @pytest.mark.asyncio
     async def test_detects_nontechnical_users_requiring_expertise(self, mock_llm_router):
         """
+        RED FLAG: Targeting non-technical users but requiring model interpretability expertise.
+        """
         # Configure mock for user expertise mismatch
         mock_llm_router.route.return_value = {
             "is_consistent": False,
@@ -870,8 +875,7 @@ class TestCapabilities:
             }],
             "recommendations": []
         }
-        RED FLAG: Targeting non-technical users but requiring model interpretability expertise.
-        """
+
         expertise_mismatch_data = {
             "stage4": {
                 "user_personas": [{
@@ -896,6 +900,8 @@ class TestCapabilities:
     @pytest.mark.asyncio
     async def test_detects_low_ethics_risk_for_high_stakes_decision(self, mock_llm_router):
         """
+        RED FLAG: Low ethical risk rating for high-stakes decisions.
+        """
         # Configure mock for ethics underestimation
         mock_llm_router.route.return_value = {
             "is_consistent": False,
@@ -908,8 +914,7 @@ class TestCapabilities:
             }],
             "recommendations": []
         }
-        RED FLAG: Low ethical risk rating for high-stakes decisions.
-        """
+
         ethics_underestimate_data = {
             "stage1": {
                 "business_objective": "Automate loan approval decisions",
@@ -1029,6 +1034,15 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_handles_partial_stage_data(self, mock_llm_router):
         """Agent should handle missing stages gracefully."""
+        # Configure mock to return recommendations for partial data
+        mock_llm_router.route.return_value = {
+            "is_consistent": False,
+            "overall_feasibility": "LOW",
+            "contradictions": [],
+            "risk_areas": [],
+            "recommendations": ["Complete all 5 stages before consistency checking"]
+        }
+
         partial_data = {
             "stage1": {"business_objective": "Test"},
             # Missing stages 2-5
