@@ -25,6 +25,9 @@ from src.agents.stage2_agent import Stage2Agent
 from src.agents.stage3_agent import Stage3Agent
 from src.agents.stage4_agent import Stage4Agent
 from src.agents.stage5_agent import Stage5Agent
+from src.agents.reflection.response_quality_agent import ResponseQualityAgent
+from src.agents.reflection.stage_gate_validator_agent import StageGateValidatorAgent
+from src.agents.reflection.consistency_checker_agent import ConsistencyCheckerAgent
 from src.models.schemas import (
     AIProjectCharter,
     AgentType,
@@ -127,10 +130,26 @@ class Orchestrator:
             ),
         }
 
-        # Reflection agents (3 total) - still placeholder
-        self.reflection_agents["quality"] = None  # ResponseQualityAgent
-        self.reflection_agents["stage_gate"] = None  # StageGateValidatorAgent
-        self.reflection_agents["consistency"] = None  # ConsistencyCheckerAgent
+        # Reflection agents (3 total) - Initialize with LLM router
+        if self.llm_router:
+            self.reflection_agents["quality"] = ResponseQualityAgent(
+                llm_router=self.llm_router,
+                quality_threshold=7,
+                max_reflection_loops=3
+            )
+            self.reflection_agents["stage_gate"] = StageGateValidatorAgent(
+                llm_router=self.llm_router
+            )
+            self.reflection_agents["consistency"] = ConsistencyCheckerAgent(
+                llm_router=self.llm_router
+            )
+            logger.info("Initialized reflection agents: Quality, StageGate, Consistency")
+        else:
+            # Placeholder agents if no LLM router (for testing)
+            self.reflection_agents["quality"] = None
+            self.reflection_agents["stage_gate"] = None
+            self.reflection_agents["consistency"] = None
+            logger.warning("LLM router not provided - reflection agents not initialized")
 
     # ========================================================================
     # SESSION MANAGEMENT
@@ -300,6 +319,7 @@ class Orchestrator:
 
     async def invoke_quality_agent(
         self,
+        question: str,
         response: str,
         session: Session,
     ) -> QualityAssessment:
@@ -307,6 +327,7 @@ class Orchestrator:
         Invoke ResponseQualityAgent to evaluate user response.
 
         Args:
+            question: The question that was asked
             response: User response text to evaluate
             session: Current session context
 
@@ -316,8 +337,8 @@ class Orchestrator:
         quality_agent = self.reflection_agents.get("quality")
 
         if quality_agent is None:
-            logger.warning("Quality agent not implemented yet")
-            # Placeholder assessment
+            logger.warning("Quality agent not initialized")
+            # Placeholder assessment - accept everything
             return QualityAssessment(
                 quality_score=8,
                 is_acceptable=True,
@@ -328,22 +349,44 @@ class Orchestrator:
 
         # Track quality attempts
         stage = session.current_stage
-        if stage not in self.quality_attempts.get(session.session_id, {}):
+        if session.session_id not in self.quality_attempts:
+            self.quality_attempts[session.session_id] = {}
+        if stage not in self.quality_attempts[session.session_id]:
             self.quality_attempts[session.session_id][stage] = 0
 
         self.quality_attempts[session.session_id][stage] += 1
 
-        # Execute quality agent (will be implemented when agent exists)
-        # assessment = await quality_agent.evaluate(response, session)
+        # Check if max attempts exceeded
+        if self.quality_attempts[session.session_id][stage] > self.max_quality_attempts:
+            logger.warning(
+                f"Max quality attempts ({self.max_quality_attempts}) exceeded for "
+                f"session {session.session_id} stage {stage}"
+            )
+            return QualityAssessment(
+                quality_score=7,  # Force acceptance after max attempts
+                is_acceptable=True,
+                issues=[],
+                suggested_followups=[],
+                examples_to_provide=[],
+            )
 
-        logger.info(f"Quality assessment for session {session.session_id}: placeholder")
-        return QualityAssessment(
-            quality_score=5,
-            is_acceptable=False,
-            issues=["Response needs more detail"],
-            suggested_followups=["Can you provide more specific examples?"],
-            examples_to_provide=[],
+        # Execute quality agent
+        stage_context = {
+            "stage": session.current_stage,
+            "stage_name": f"Stage {session.current_stage}"
+        }
+
+        assessment = await quality_agent.evaluate_response(
+            question=question,
+            user_response=response,
+            stage_context=stage_context
         )
+
+        logger.info(
+            f"Quality assessment for session {session.session_id} stage {stage}: "
+            f"score={assessment.quality_score}, acceptable={assessment.is_acceptable}"
+        )
+        return assessment
 
     async def invoke_stage_gate_validator(
         self,
@@ -363,7 +406,8 @@ class Orchestrator:
         validator = self.reflection_agents.get("stage_gate")
 
         if validator is None:
-            logger.warning("Stage gate validator not implemented yet")
+            logger.warning("Stage gate validator not initialized")
+            # Placeholder validation - always pass
             return StageValidation(
                 can_proceed=True,
                 completeness_score=1.0,
@@ -372,17 +416,21 @@ class Orchestrator:
                 recommendations=[],
             )
 
-        # Execute validator (will be implemented when agent exists)
-        # validation = await validator.validate(session, stage_number)
+        # Get stage data from session
+        collected_data = session.stage_data.get(stage_number)
 
-        logger.info(f"Stage gate validation for stage {stage_number}: placeholder")
-        return StageValidation(
-            can_proceed=True,
-            completeness_score=0.9,
-            missing_items=[],
-            validation_concerns=[],
-            recommendations=[],
+        # Execute validator
+        validation = await validator.validate_stage(
+            stage_number=stage_number,
+            collected_data=collected_data
         )
+
+        logger.info(
+            f"Stage gate validation for stage {stage_number}: "
+            f"can_proceed={validation.can_proceed}, "
+            f"completeness={validation.completeness_score:.2f}"
+        )
+        return validation
 
     async def invoke_consistency_checker(self, session: Session) -> ConsistencyReport:
         """
@@ -397,7 +445,8 @@ class Orchestrator:
         checker = self.reflection_agents.get("consistency")
 
         if checker is None:
-            logger.warning("Consistency checker not implemented yet")
+            logger.warning("Consistency checker not initialized")
+            # Placeholder consistency report - always pass
             return ConsistencyReport(
                 is_consistent=True,
                 overall_feasibility=FeasibilityLevel.HIGH,
@@ -406,17 +455,23 @@ class Orchestrator:
                 recommendations=[],
             )
 
-        # Execute checker (will be implemented when agent exists)
-        # report = await checker.check_consistency(session)
+        # Prepare all stages data for consistency checking
+        all_stages_data = {
+            f"stage{i}": session.stage_data.get(i)
+            for i in range(1, 6)
+            if session.stage_data.get(i) is not None
+        }
 
-        logger.info(f"Consistency check for session {session.session_id}: placeholder")
-        return ConsistencyReport(
-            is_consistent=True,
-            overall_feasibility=FeasibilityLevel.HIGH,
-            contradictions=[],
-            risk_areas=[],
-            recommendations=[],
+        # Execute consistency checker
+        report = await checker.check_consistency(all_stages_data)
+
+        logger.info(
+            f"Consistency check for session {session.session_id}: "
+            f"is_consistent={report.is_consistent}, "
+            f"feasibility={report.overall_feasibility.value}, "
+            f"contradictions={len(report.contradictions)}"
         )
+        return report
 
     # ========================================================================
     # GOVERNANCE AND CHARTER GENERATION
