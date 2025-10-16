@@ -14,18 +14,28 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
+from src.agents.stage1_business_translation import Stage1Agent
+from src.agents.stage2_agent import Stage2Agent
+from src.agents.stage3_agent import Stage3Agent
+from src.agents.stage4_agent import Stage4Agent
+from src.agents.stage5_agent import Stage5Agent
 from src.models.schemas import (
     AIProjectCharter,
     AgentType,
     Checkpoint,
     ConsistencyReport,
+    DataQualityScorecard,
+    EthicalRiskReport,
     FeasibilityLevel,
     GovernanceDecision,
     Message,
+    MetricAlignmentMatrix,
+    ProblemStatement,
     QualityAssessment,
     Session,
     SessionStatus,
     StageValidation,
+    UserContext,
 )
 
 logger = logging.getLogger(__name__)
@@ -81,13 +91,37 @@ class Orchestrator:
     def _initialize_agent_registries(self) -> None:
         """
         Initialize agent registries for stage and reflection agents.
-        Placeholder implementation until agents are created.
-        """
-        # Stage agents (5 total)
-        for stage_num in range(1, 6):
-            self.stage_agents[stage_num] = None  # Placeholder
 
-        # Reflection agents (3 total)
+        Stage agents are created as factory functions that take session context
+        and return configured agent instances. This allows each session to have
+        its own agent instances with proper session-specific context.
+        """
+        # Stage agent factory functions
+        # Each returns a lambda that creates an agent with session context
+        self.stage_agents = {
+            1: lambda session: Stage1Agent(
+                session_context=session,
+                llm_router=self.llm_router,
+            ),
+            2: lambda session: Stage2Agent(
+                session_context=session,
+                llm_router=self.llm_router,
+            ),
+            3: lambda session: Stage3Agent(
+                session_context=session,
+                llm_router=self.llm_router,
+            ),
+            4: lambda session: Stage4Agent(
+                session_context=session,
+                llm_router=self.llm_router,
+            ),
+            5: lambda session: Stage5Agent(
+                session_context=session,
+                llm_router=self.llm_router,
+            ),
+        }
+
+        # Reflection agents (3 total) - still placeholder
         self.reflection_agents["quality"] = None  # ResponseQualityAgent
         self.reflection_agents["stage_gate"] = None  # StageGateValidatorAgent
         self.reflection_agents["consistency"] = None  # ConsistencyCheckerAgent
@@ -192,7 +226,7 @@ class Orchestrator:
             stage_number: Stage number to execute (1-5)
 
         Returns:
-            Stage deliverable output
+            Stage deliverable output (ProblemStatement, MetricAlignmentMatrix, etc.)
 
         Raises:
             ValueError: If stage_number is invalid or out of order
@@ -208,23 +242,32 @@ class Orchestrator:
                     f"Current stage is {session.current_stage}"
                 )
 
-        # Get stage agent
-        stage_agent = self.stage_agents.get(stage_number)
-        if stage_agent is None:
+        # Get stage agent factory
+        agent_factory = self.stage_agents.get(stage_number)
+        if agent_factory is None:
             logger.warning(f"Stage {stage_number} agent not implemented yet")
             # For now, create placeholder data
             stage_data = {"stage": stage_number, "completed": True}
             session.stage_data[stage_number] = stage_data
             return stage_data
 
-        # Execute stage agent (will be implemented when agents exist)
+        # Create agent instance with session context
         logger.info(f"Running stage {stage_number} for session {session.session_id}")
+        stage_agent = agent_factory(session)
 
-        # Placeholder: actual agent execution would happen here
-        # stage_output = await stage_agent.execute(session)
+        # Execute stage agent interview
+        stage_output = await stage_agent.conduct_interview()
 
+        # Store stage output in session
+        session.stage_data[stage_number] = stage_output
         session.last_updated_at = datetime.now(UTC)
-        return None
+
+        logger.info(
+            f"Stage {stage_number} completed for session {session.session_id}. "
+            f"Output type: {type(stage_output).__name__}"
+        )
+
+        return stage_output
 
     async def advance_to_next_stage(self, session: Session) -> None:
         """
@@ -411,25 +454,65 @@ class Orchestrator:
         if len(session.stage_data) < 5:
             raise ValueError("All 5 stages must be completed")
 
-        # Extract stage deliverables (placeholder - actual extraction will be implemented)
-        # For now, create minimal charter
+        # Extract stage deliverables
+        problem_statement: ProblemStatement = session.stage_data.get(1)  # type: ignore
+        metric_alignment: MetricAlignmentMatrix = session.stage_data.get(2)  # type: ignore
+        data_quality: DataQualityScorecard = session.stage_data.get(3)  # type: ignore
+        user_context: UserContext = session.stage_data.get(4)  # type: ignore
+        ethical_report: EthicalRiskReport = session.stage_data.get(5)  # type: ignore
+
+        # Get governance decision from Stage 5
+        governance_decision = ethical_report.governance_decision
+
+        # Determine overall feasibility based on ethical risks
+        if governance_decision == GovernanceDecision.HALT:
+            overall_feasibility = FeasibilityLevel.NOT_FEASIBLE
+        elif governance_decision in [
+            GovernanceDecision.SUBMIT_TO_COMMITTEE,
+            GovernanceDecision.REVISE,
+        ]:
+            overall_feasibility = FeasibilityLevel.LOW
+        elif governance_decision == GovernanceDecision.PROCEED_WITH_MONITORING:
+            overall_feasibility = FeasibilityLevel.MEDIUM
+        else:
+            overall_feasibility = FeasibilityLevel.HIGH
+
+        # Extract critical success factors from Stage 2 (KPIs)
+        critical_success_factors = [
+            f"{kpi.name}: {kpi.description} (Target: {kpi.target_value})"
+            for kpi in metric_alignment.business_kpis
+        ]
+
+        # Extract major risks from Stage 5 (ethical risks)
+        major_risks = [
+            f"{risk.principle.value}: {risk.description} (Severity: {risk.severity}/5, "
+            f"Residual: {risk.residual_risk_level.value})"
+            for risk in ethical_report.ethical_risks
+        ]
+
+        # Create charter
         charter = AIProjectCharter(
             session_id=session.session_id,
             project_name=session.project_name,
             created_at=session.started_at,
             completed_at=datetime.now(UTC),
-            problem_statement=session.stage_data.get(1),  # type: ignore
-            metric_alignment_matrix=session.stage_data.get(2),  # type: ignore
-            data_quality_scorecard=session.stage_data.get(3),  # type: ignore
-            user_context=session.stage_data.get(4),  # type: ignore
-            ethical_risk_report=session.stage_data.get(5),  # type: ignore
-            governance_decision=GovernanceDecision.PROCEED,
-            overall_feasibility=FeasibilityLevel.HIGH,
-            critical_success_factors=[],
-            major_risks=[],
+            problem_statement=problem_statement,
+            metric_alignment_matrix=metric_alignment,
+            data_quality_scorecard=data_quality,
+            user_context=user_context,
+            ethical_risk_report=ethical_report,
+            governance_decision=governance_decision,
+            overall_feasibility=overall_feasibility,
+            critical_success_factors=critical_success_factors,
+            major_risks=major_risks,
         )
 
-        logger.info(f"Generated charter for session {session.session_id}")
+        logger.info(
+            f"Generated charter for session {session.session_id}: "
+            f"Decision={governance_decision.value}, "
+            f"Feasibility={overall_feasibility.value}"
+        )
+
         return charter
 
     # ========================================================================
