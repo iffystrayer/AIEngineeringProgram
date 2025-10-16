@@ -733,7 +733,11 @@ class TestStage5AgentIntegration:
             residual_risk=None,
         )
 
-        mitigation = MitigationStrategy(description="Test", effectiveness_rating=0.5)
+        mitigation = MitigationStrategy(
+            description="Test mitigation",
+            implementation_method="Test implementation",
+            effectiveness_rating=0.5,
+        )
 
         residual = await stage5_agent_instance.calculate_residual_risk(
             initial_risk=risk, mitigations=[mitigation]

@@ -10,7 +10,7 @@ Based on SWE Specification Section 5 - Data Models.
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any
+from typing import Any, Optional
 from uuid import UUID, uuid4
 
 # ============================================================================
@@ -136,7 +136,7 @@ class Feature:
     description: str
     source_system: str
     availability_in_production: bool
-    access_latency_ms: int | None = None
+    access_latency_ms: Optional[int] = None
 
 
 @dataclass
@@ -146,8 +146,8 @@ class OutputDefinition:
     name: str
     type: str  # categorical, continuous, probability, etc.
     description: str
-    possible_values: list[str] | None = None
-    units: str | None = None
+    possible_values: Optional[list[str]] = None
+    units: Optional[str] = None
 
 
 @dataclass
@@ -197,7 +197,7 @@ class KPI:
 
     name: str
     description: str
-    current_baseline: float | None
+    current_baseline: Optional[float]
     target_value: float
     target_timeframe: str
     measurement_method: str
@@ -264,6 +264,20 @@ class DataSource:
     update_frequency: str
     access_method: str
     quality_assessment: dict[QualityDimension, int]  # 0-10 scores
+    covered_features: list[dict[str, str]] = field(default_factory=list)  # Features from Stage 1
+
+
+@dataclass
+class LabelingPlan:
+    """Data labeling plan with detailed cost and quality analysis."""
+
+    approach: str  # manual, semi-automated, fully automated, hybrid
+    num_labels_required: Optional[int] = None
+    cost_per_label: Optional[float] = None
+    total_budget: Optional[float] = None
+    timeline: Optional[str] = None
+    quality_assurance: Optional[str] = None
+    annotator_requirements: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -330,6 +344,8 @@ class Persona:
     technical_proficiency: str  # novice, intermediate, expert
     ai_interaction_frequency: str
     decision_authority: str
+    research_evidence: Optional[str] = None  # Evidence supporting persona definition
+    data_access_level: Optional[str] = None  # full, partial, read-only
 
 
 @dataclass
@@ -347,9 +363,14 @@ class JourneyStage:
 class JourneyMap:
     """Complete AI user journey mapping."""
 
-    stages: list[JourneyStage]
-    critical_decision_points: list[str]
-    risk_areas: list[str]
+    stages: Optional[list[JourneyStage]] = None
+    critical_decision_points: Optional[list[str]] = None
+    risk_areas: Optional[list[str]] = None
+    # Alternative structure for test compatibility
+    pre_ai_stage: Optional[dict[str, Any]] = None
+    during_ai_stage: Optional[dict[str, Any]] = None
+    post_ai_stage: Optional[dict[str, Any]] = None
+    critical_touchpoints: Optional[list[str]] = None
 
 
 @dataclass
@@ -406,8 +427,8 @@ class MitigationStrategy:
 
     description: str
     implementation_method: str
-    cost_estimate: str | None = None
-    timeline: str | None = None
+    cost_estimate: Optional[str] = None
+    timeline: Optional[str] = None
     effectiveness_rating: float = 0.0  # 0.0-1.0
 
 
@@ -464,9 +485,9 @@ class Citation:
     year: int
     title: str
     source: str
-    url: str | None = None
-    doi: str | None = None
-    access_date: datetime | None = None
+    url: Optional[str] = None
+    doi: Optional[str] = None
+    access_date: Optional[datetime] = None
 
 
 # ============================================================================
@@ -497,8 +518,8 @@ class AIProjectCharter:
     major_risks: list[str]
 
     # Metadata
-    approver: str | None = None
-    approval_date: datetime | None = None
+    approver: Optional[str] = None
+    approval_date: Optional[datetime] = None
     version: str = "1.0"
     citations: list[Citation] = field(default_factory=list)
 
@@ -515,7 +536,7 @@ class Message:
     role: str  # "user", "assistant", "system"
     content: str
     timestamp: datetime = field(default_factory=datetime.utcnow)
-    stage_number: int | None = None
+    stage_number: Optional[int] = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -528,7 +549,7 @@ class Checkpoint:
     data_snapshot: dict[str, Any]
     validation_status: bool
     checkpoint_id: str = field(default_factory=lambda: str(uuid4()))
-    session_id: UUID | None = None  # Optional session reference
+    session_id: Optional[UUID] = None  # Optional session reference
 
     # Compatibility properties for accessing nested data
     @property
@@ -657,3 +678,53 @@ class ValidationResult:
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     suggestions: list[str] = field(default_factory=list)
+
+
+# ============================================================================
+# STAGE 3 VALIDATION RESULTS
+# ============================================================================
+
+
+@dataclass
+class DimensionScore:
+    """Quality dimension assessment result."""
+
+    dimension: QualityDimension
+    score: int  # 0-10
+    evidence: str
+    concerns: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ThresholdValidation:
+    """Quality threshold validation result."""
+
+    meets_threshold: bool
+    average_score: float
+    blocking_issues: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+
+@dataclass
+class LabelingValidation:
+    """Labeling strategy validation result."""
+
+    is_adequate: bool
+    has_budget: bool
+    has_timeline: bool
+    has_quality_plan: bool
+    missing_elements: list[str] = field(default_factory=list)
+    feedback: str = ""
+
+
+@dataclass
+class FAIRCompliance:
+    """FAIR principles compliance assessment."""
+
+    findable_score: str  # Full, Partial, None
+    accessible_score: str
+    interoperable_score: str
+    reusable_score: str
+    overall_maturity: str  # High, Medium, Low
+    gaps: list[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
