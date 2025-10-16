@@ -19,7 +19,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Union
 
 from src.models.schemas import (
     Feature,
@@ -437,7 +437,7 @@ class Stage1Agent:
         response: str,
         return_attempt_count: bool = False,
         previous_attempts: int = 0,
-    ) -> QualityAssessment | tuple[QualityAssessment, int]:
+    ) -> Union[QualityAssessment, tuple[QualityAssessment, int]]:
         """
         Validate response quality using ResponseQualityAgent.
 
@@ -543,7 +543,7 @@ class Stage1Agent:
         inputs: list[str],
         output: str,
         return_justification: bool = False,
-    ) -> MLArchetype | tuple[MLArchetype, str]:
+    ) -> Union[MLArchetype, tuple[MLArchetype, str]]:
         """
         Determine the appropriate ML archetype based on inputs and outputs.
 

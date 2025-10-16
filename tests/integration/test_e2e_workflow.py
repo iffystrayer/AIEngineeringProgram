@@ -142,7 +142,7 @@ class TestEndToEndWorkflow:
         assert stage3_output is not None
         assert isinstance(stage3_output, DataQualityScorecard)
         assert len(stage3_output.data_sources) > 0
-        assert len(stage3_output.quality_dimensions) > 0
+        assert len(stage3_output.quality_scores) > 0
         assert session.stage_data[3] == stage3_output
 
         # Advance to Stage 4
@@ -155,9 +155,9 @@ class TestEndToEndWorkflow:
 
         assert stage4_output is not None
         assert isinstance(stage4_output, UserContext)
-        assert len(stage4_output.personas) > 0
-        assert stage4_output.journey_map is not None
-        assert stage4_output.interpretability_level is not None
+        assert len(stage4_output.user_personas) > 0
+        assert stage4_output.user_journey_map is not None
+        assert stage4_output.interpretability_needs is not None
         assert session.stage_data[4] == stage4_output
 
         # Advance to Stage 5
@@ -170,7 +170,7 @@ class TestEndToEndWorkflow:
 
         assert stage5_output is not None
         assert isinstance(stage5_output, EthicalRiskReport)
-        assert len(stage5_output.ethical_risks) > 0
+        assert len(stage5_output.initial_risks) > 0
         assert stage5_output.governance_decision is not None
         assert session.stage_data[5] == stage5_output
 
@@ -300,11 +300,13 @@ class TestEndToEndWorkflow:
 
         # Verify major risks extracted from Stage 5
         ethical_report: EthicalRiskReport = session.stage_data[5]
-        assert len(charter.major_risks) == len(ethical_report.ethical_risks)
+        # Count total risks across all principles
+        total_risks = sum(len(risks) for risks in ethical_report.initial_risks.values())
+        assert len(charter.major_risks) == total_risks
 
-        # Verify each ethical risk appears in major risks
-        for risk in ethical_report.ethical_risks:
-            assert any(risk.principle.value in mr for mr in charter.major_risks)
+        # Verify each ethical principle appears in major risks
+        for principle in ethical_report.initial_risks.keys():
+            assert any(principle.value in mr for mr in charter.major_risks)
 
     @pytest.mark.asyncio
     async def test_stage_data_types(self, orchestrator_instance):
@@ -354,7 +356,8 @@ class TestEndToEndWorkflow:
             await orchestrator_instance.advance_to_next_stage(session)
 
         # Try to generate charter with incomplete stages
-        with pytest.raises(ValueError, match="All 5 stages must be completed"):
+        # Note: Session status is still IN_PROGRESS, so it will fail the status check first
+        with pytest.raises(ValueError, match="Session must be completed"):
             await orchestrator_instance.generate_charter(session)
 
 
@@ -477,7 +480,7 @@ class TestStageAgentIntegration:
 
         assert isinstance(output, DataQualityScorecard)
         assert len(output.data_sources) > 0
-        assert len(output.quality_dimensions) > 0
+        assert len(output.quality_scores) > 0
 
     @pytest.mark.asyncio
     async def test_stage4_agent_integration(self, orchestrator_instance):
@@ -495,8 +498,8 @@ class TestStageAgentIntegration:
         output = await orchestrator_instance.run_stage(session, 4)
 
         assert isinstance(output, UserContext)
-        assert len(output.personas) > 0
-        assert output.interpretability_level is not None
+        assert len(output.user_personas) > 0
+        assert output.interpretability_needs is not None
 
     @pytest.mark.asyncio
     async def test_stage5_agent_integration(self, orchestrator_instance):
@@ -514,5 +517,5 @@ class TestStageAgentIntegration:
         output = await orchestrator_instance.run_stage(session, 5)
 
         assert isinstance(output, EthicalRiskReport)
-        assert len(output.ethical_risks) > 0
+        assert len(output.initial_risks) > 0
         assert output.governance_decision is not None

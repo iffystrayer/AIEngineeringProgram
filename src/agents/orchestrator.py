@@ -10,9 +10,15 @@ Based on SWE Specification Section 7.1 - Orchestrator Agent.
 
 import asyncio
 import logging
-from datetime import UTC, datetime
-from typing import Any
+from datetime import datetime, timezone
+from typing import Any, Union
 from uuid import UUID, uuid4
+
+# Python 3.9 compatibility - UTC was added in Python 3.11
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = timezone.utc  # type: ignore
 
 from src.agents.stage1_business_translation import Stage1Agent
 from src.agents.stage2_agent import Stage2Agent
@@ -57,8 +63,8 @@ class Orchestrator:
     def __init__(
         self,
         db_pool: Any,
-        llm_router: Any | None = None,
-        config: dict[str, Any] | None = None,
+        llm_router: Union[Any, None] = None,
+        config: Union[dict[str, Any], None] = None,
     ):
         """
         Initialize Orchestrator with required dependencies.
@@ -483,12 +489,14 @@ class Orchestrator:
             for kpi in metric_alignment.business_kpis
         ]
 
-        # Extract major risks from Stage 5 (ethical risks)
-        major_risks = [
-            f"{risk.principle.value}: {risk.description} (Severity: {risk.severity}/5, "
-            f"Residual: {risk.residual_risk_level.value})"
-            for risk in ethical_report.ethical_risks
-        ]
+        # Extract major risks from Stage 5 (ethical risks from initial_risks dict)
+        major_risks = []
+        for principle, risks in ethical_report.initial_risks.items():
+            for risk in risks:
+                major_risks.append(
+                    f"{principle.value}: {risk.risk_description} "
+                    f"(Severity: {risk.severity.value}/5, Residual: {risk.residual_risk.value}/5)"
+                )
 
         # Create charter
         charter = AIProjectCharter(
@@ -613,7 +621,7 @@ class Orchestrator:
                     continue
                 raise e
 
-    async def _load_session_from_db(self, session_id: UUID) -> Session | None:
+    async def _load_session_from_db(self, session_id: UUID) -> Union[Session, None]:
         """Load session from database."""
         if not self.db_pool:
             return None
@@ -652,7 +660,7 @@ class Orchestrator:
         except Exception as e:
             logger.error(f"Failed to persist checkpoint: {e}")
 
-    async def _load_checkpoint_from_db(self, checkpoint_id: str) -> Session | None:
+    async def _load_checkpoint_from_db(self, checkpoint_id: str) -> Union[Session, None]:
         """Load checkpoint from database."""
         if not self.db_pool:
             return None

@@ -589,6 +589,32 @@ class Session:
         """Alias for last_updated_at to match test expectations."""
         return self.last_updated_at
 
+    # Dynamic stage data accessors for agent compatibility
+    @property
+    def stage1_data(self) -> Optional[Any]:
+        """Access Stage 1 deliverable (ProblemStatement)."""
+        return self.stage_data.get(1)
+
+    @property
+    def stage2_data(self) -> Optional[Any]:
+        """Access Stage 2 deliverable (MetricAlignmentMatrix)."""
+        return self.stage_data.get(2)
+
+    @property
+    def stage3_data(self) -> Optional[Any]:
+        """Access Stage 3 deliverable (DataQualityScorecard)."""
+        return self.stage_data.get(3)
+
+    @property
+    def stage4_data(self) -> Optional[Any]:
+        """Access Stage 4 deliverable (UserContext)."""
+        return self.stage_data.get(4)
+
+    @property
+    def stage5_data(self) -> Optional[Any]:
+        """Access Stage 5 deliverable (EthicalRiskReport)."""
+        return self.stage_data.get(5)
+
 
 # ============================================================================
 # REFLECTION AGENT OUTPUTS
