@@ -285,6 +285,7 @@ class ProviderCapabilities:
 # Provider capability definitions
 PROVIDER_CAPABILITIES = {
     LLMProvider.ANTHROPIC: {
+        # Claude 3 models
         "claude-3-opus": ProviderCapabilities(
             supports_streaming=True,
             supports_function_calling=True,
@@ -314,6 +315,37 @@ PROVIDER_CAPABILITIES = {
             cost_per_1k_input_tokens=0.00025,
             cost_per_1k_output_tokens=0.00125,
             typical_latency_ms=800,
+        ),
+        # Claude 4 models
+        "claude-sonnet-4": ProviderCapabilities(
+            supports_streaming=True,
+            supports_function_calling=True,
+            supports_vision=True,
+            supports_json_mode=True,
+            max_context_length=200000,
+            cost_per_1k_input_tokens=0.003,
+            cost_per_1k_output_tokens=0.015,
+            typical_latency_ms=1500,
+        ),
+        "claude-haiku-4": ProviderCapabilities(
+            supports_streaming=True,
+            supports_function_calling=True,
+            supports_vision=True,
+            supports_json_mode=True,
+            max_context_length=200000,
+            cost_per_1k_input_tokens=0.0004,
+            cost_per_1k_output_tokens=0.002,
+            typical_latency_ms=600,
+        ),
+        "claude-haiku-4-5": ProviderCapabilities(
+            supports_streaming=True,
+            supports_function_calling=True,
+            supports_vision=True,
+            supports_json_mode=True,
+            max_context_length=200000,
+            cost_per_1k_input_tokens=0.0004,
+            cost_per_1k_output_tokens=0.002,
+            typical_latency_ms=600,
         ),
     },
     LLMProvider.OPENAI: {

@@ -37,9 +37,14 @@ class AnthropicProvider(BaseLLMProvider):
 
         # Model mappings (short name -> full API name)
         self.model_mappings = {
+            # Claude 3 models
             "claude-3-opus": "claude-3-opus-20240229",
             "claude-3-sonnet": "claude-3-sonnet-20240229",
             "claude-3-haiku": "claude-3-haiku-20240307",
+            # Claude 4 models
+            "claude-sonnet-4": "claude-sonnet-4-20250514",
+            "claude-haiku-4": "claude-haiku-4-5-20251001",
+            "claude-haiku-4-5": "claude-haiku-4-5-20251001",
         }
 
         # Initialize Anthropic client (lazy loading)
@@ -166,6 +171,7 @@ class AnthropicProvider(BaseLLMProvider):
     def get_model_info(self, model: str) -> dict[str, Any]:
         """Get Claude model information."""
         model_info = {
+            # Claude 3 models
             "claude-3-opus-20240229": {
                 "context_length": 200000,
                 "cost_per_1k_input": 0.015,
@@ -183,6 +189,19 @@ class AnthropicProvider(BaseLLMProvider):
                 "cost_per_1k_input": 0.00025,
                 "cost_per_1k_output": 0.00125,
                 "capabilities": ["text", "vision"],
+            },
+            # Claude 4 models
+            "claude-sonnet-4-20250514": {
+                "context_length": 200000,
+                "cost_per_1k_input": 0.003,
+                "cost_per_1k_output": 0.015,
+                "capabilities": ["text", "vision", "function_calling", "artifacts"],
+            },
+            "claude-haiku-4-5-20251001": {
+                "context_length": 200000,
+                "cost_per_1k_input": 0.0004,
+                "cost_per_1k_output": 0.002,
+                "capabilities": ["text", "vision", "function_calling"],
             },
         }
 
