@@ -14,12 +14,14 @@ from typing import Optional, Dict, Any
 from src.conversation.context import ConversationContext
 from src.conversation.types import MessageRole, ValidationResult
 from src.utils.logging_sanitizer import setup_sanitized_logging
+from src.utils.type_validators import validate_conversation_engine_inputs
 from src.exceptions import (
     PromptInjectionError,
     InputSizeLimitError,
     ConversationStateError,
     LLMTimeoutError,
 )
+from pydantic import ValidationError as PydanticValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -177,24 +179,16 @@ class ConversationEngine:
             question: The question to ask the user (max 500 chars)
 
         Raises:
-            ValueError: If conversation is not in valid state or question is invalid
-            TypeError: If question is not a string
+            PydanticValidationError: If question violates type or constraint requirements
+            ConversationStateError: If conversation is not in valid state
         """
-        # Type validation
-        if not isinstance(question, str):
-            raise TypeError(f"question must be str, got {type(question).__name__}")
-
-        # Content validation
-        if not question or not question.strip():
-            raise ValueError("Question cannot be empty or whitespace only")
-
-        # M-3: Use specific exception for size limit
-        if len(question) > MAX_QUESTION_LENGTH:
-            raise InputSizeLimitError(
-                input_type="question",
-                max_length=MAX_QUESTION_LENGTH,
-                actual_length=len(question)
-            )
+        # M-4: Runtime type validation with Pydantic
+        try:
+            validated = validate_conversation_engine_inputs(question=question)
+            question = validated["question"]
+        except PydanticValidationError as e:
+            logger.error(f"Question validation failed: {e}")
+            raise
 
         # M-3: Use specific exception for state errors
         if self.state not in [ConversationState.IDLE, ConversationState.COMPLETE]:
@@ -239,24 +233,17 @@ class ConversationEngine:
                 - escalated: bool (True if max attempts reached)
 
         Raises:
-            TypeError: If user_response is not a string
-            ValueError: If conversation is not waiting for response or response is invalid
+            PydanticValidationError: If user_response violates type or constraint requirements
+            PromptInjectionError: If injection pattern detected
+            ConversationStateError: If conversation is not waiting for response
         """
-        # Type validation
-        if not isinstance(user_response, str):
-            raise TypeError(f"user_response must be str, got {type(user_response).__name__}")
-
-        # Content validation
-        if not user_response or not user_response.strip():
-            raise ValueError("Response cannot be empty or whitespace only")
-
-        # M-3: Use specific exception for size limit
-        if len(user_response) > MAX_RESPONSE_LENGTH:
-            raise InputSizeLimitError(
-                input_type="response",
-                max_length=MAX_RESPONSE_LENGTH,
-                actual_length=len(user_response)
-            )
+        # M-4: Runtime type validation with Pydantic
+        try:
+            validated = validate_conversation_engine_inputs(user_response=user_response)
+            user_response = validated["user_response"]
+        except PydanticValidationError as e:
+            logger.error(f"User response validation failed: {e}")
+            raise
 
         # M-3: Use specific exception for injection detection
         if self._detect_injection(user_response):

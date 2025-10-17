@@ -316,11 +316,13 @@ class TestStageAgentValidation:
         from pydantic import ValidationError
         invalid_context = {
             "project_id": uuid4()
-            # Missing theme, parameters, etc.
+            # Missing theme, vfs_workspace, etc.
         }
         with pytest.raises(ValidationError) as exc_info:
             validate_stage_agent_inputs(context=invalid_context)
-        assert "context" in str(exc_info.value)
+        # Check that required fields are mentioned in error
+        error_str = str(exc_info.value)
+        assert "theme" in error_str or "vfs_workspace" in error_str
 
 
 # ==============================================================================
@@ -346,6 +348,7 @@ class TestValidationIntegration:
         context = ConversationContext(
             session_id=uuid4(),
             stage_number=1,
+            current_question="Initial question",  # Required field
             max_attempts=3
         )
 
@@ -369,6 +372,7 @@ class TestValidationIntegration:
         context = ConversationContext(
             session_id=uuid4(),
             stage_number=1,
+            current_question="Initial question",  # Required field
             max_attempts=3
         )
 
