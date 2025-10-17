@@ -12,32 +12,66 @@
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Alpha Release)
+
+### One-Command Installation
 
 ```bash
-# Clone and setup
-git clone [repository-url]
-cd AIEngineeringProgram
+# Navigate to project directory
+cd /Users/ifiokmoses/code/AIEngineeringProgram
 
-# Create environment
-uv venv
-source .venv/bin/activate
+# Run automated installer
+./install.sh
+```
 
-# Install dependencies
-uv pip install -e ".[dev]"
+The installer will:
+- ✅ Check Python 3.11+ and Docker
+- ✅ Install `uv` package manager if needed
+- ✅ Install the `uaip` CLI command
+- ✅ Create `.env` configuration file
+- ✅ Start PostgreSQL database
+- ✅ Verify installation
 
-# Configure environment
-cp .env.example .env
-# Add your ANTHROPIC_API_KEY to .env
+### Manual Installation
 
-# Run tests
-uv run pytest tests/conversation/ tests/agents/ -v
+```bash
+# 1. Install CLI command
+uv pip install -e .
 
-# Start containers
-docker compose up -d
+# 2. Set LLM provider (choose one)
+export ANTHROPIC_API_KEY="your-api-key"  # OR
+ollama serve && ollama pull llama3
 
-# Test end-to-end workflow
-uv run pytest tests/integration/test_complete_multi_stage_conversation.py -v
+# 3. Start database
+docker-compose up -d postgres
+
+# 4. Verify installation
+uaip --help
+uv run python test_alpha_interactive.py
+```
+
+### Your First Session
+
+```bash
+# Start interactive scoping session
+uaip start "reduce customer churn by 25%"
+
+# Answer questions interactively
+# System guides you with quality feedback (0-10 scoring)
+# Quality loops ensure precise, measurable responses
+
+# Session completes with full AI Project Charter
+```
+
+**📖 Detailed Guide:** See [QUICK_START.md](./QUICK_START.md) for step-by-step setup
+
+**⚠️ Common Issue:** If `uaip` command not found:
+```bash
+# Option 1: Use direct Python
+uv run python -m src.cli.main start "your project"
+
+# Option 2: Create alias
+echo 'alias uaip="uv run python -m src.cli.main"' >> ~/.zshrc && source ~/.zshrc
 ```
 
 ---

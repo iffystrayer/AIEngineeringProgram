@@ -51,7 +51,7 @@ Tests passed: 3/3
 
 1. **Start Session**
    ```bash
-   uaip start "customer churn prediction"
+     uaip start "customer churn prediction"
    ```
 
 2. **Answer Questions Interactively**
@@ -66,21 +66,21 @@ Tests passed: 3/3
    ┌──────────────────────────────────────────┐
    │ What business problem are you solving?  │
    └──────────────────────────────────────────┘
-
+   
    Your response> We want to improve things
-
+   
    ⚠️ Quality validation feedback:
    Score: 4/10
    Issues identified:
      • Response is too vague - please be more specific
-
+   
    ┌──────────────────────────────────────────┐
    │ Can you specify what metric you want    │
    │ to improve?                              │
    └──────────────────────────────────────────┘
-
+   
    Improved response> We want to reduce customer churn from 15% to 10% over 6 months
-
+   
    ✓ Response accepted (quality: 8/10)
    ```
 
@@ -92,10 +92,10 @@ Tests passed: 3/3
 5. **Final Charter Generation**
    ```
    🎉 Project Scoping Complete!
-
+   
    Governance Decision: PROCEED_WITH_MONITORING
    Overall Feasibility: HIGH
-
+   
    View charter: uaip export <session_id>
    ```
 
@@ -182,19 +182,53 @@ Each stage generates structured deliverable:
 - **Fallback**: Ollama (local, always available, cost-free)
 - **Smart Routing**: Automatic fallback on provider failures
 
-## Usage
+## Installation & Setup
 
-### Prerequisites
-1. **Database running** (Docker container)
+### Step 1: Install the CLI Command
+
+```bash
+# Navigate to project directory
+cd /Users/ifiokmoses/code/AIEngineeringProgram
+
+# Install package (creates 'uaip' command)
+uv pip install -e .
+
+# Verify installation
+uaip --help
+```
+
+**If `uaip` command is not found:**
+```bash
+# Option A: Use direct Python execution
+uv run python -m src.cli.main start "your project"
+
+# Option B: Create shell alias
+echo 'alias uaip="uv run python -m src.cli.main"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+### Step 2: Start Prerequisites
+
+1. **Database** (Docker container)
    ```bash
-   docker ps --filter "name=postgres"
+   docker-compose up -d postgres
+   docker ps --filter "name=postgres"  # Verify running
    ```
 
-2. **LLM Provider** (one of):
-   - Set `ANTHROPIC_API_KEY` environment variable, OR
-   - Run Ollama locally: `ollama serve`
+2. **LLM Provider** (choose one):
 
-### Running the Alpha
+   **Option A: Anthropic Claude**
+   ```bash
+   export ANTHROPIC_API_KEY="your-api-key"
+   ```
+
+   **Option B: Ollama (Local)**
+   ```bash
+   ollama serve
+   ollama pull llama3
+   ```
+
+### Step 3: Run Your First Session
 
 ```bash
 # Start interactive session
@@ -206,6 +240,8 @@ uaip start "reduce customer churn by 25%"
 # Export final charter
 uaip export <session_id>
 ```
+
+**See `QUICK_START.md` for detailed setup guide.**
 
 ### Verification Test
 ```bash
