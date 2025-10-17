@@ -127,10 +127,18 @@ class LLMRouter:
         elif provider_name == "ollama":
             from src.llm.providers.ollama_provider import OllamaProvider
 
+            # Extract explicit params to avoid duplicate keyword arguments
+            base_url = provider_config.get("base_url", "http://localhost:11434")
+            default_model = provider_config.get("default_model", "llama3")
+
+            # Remove explicit params from config dict
+            extra_config = {k: v for k, v in provider_config.items()
+                           if k not in ["base_url", "default_model"]}
+
             return OllamaProvider(
-                base_url=provider_config.get("base_url", "http://localhost:11434"),
-                default_model=provider_config.get("default_model", "llama3"),
-                **provider_config,
+                base_url=base_url,
+                default_model=default_model,
+                **extra_config,
             )
 
         elif provider_name == "google":
