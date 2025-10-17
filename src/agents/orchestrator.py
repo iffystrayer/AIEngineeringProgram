@@ -104,33 +104,11 @@ class Orchestrator:
         Stage agents are created as factory functions that take session context
         and return configured agent instances. This allows each session to have
         its own agent instances with proper session-specific context.
-        """
-        # Stage agent factory functions
-        # Each returns a lambda that creates an agent with session context
-        self.stage_agents = {
-            1: lambda session: Stage1Agent(
-                session_context=session,
-                llm_router=self.llm_router,
-            ),
-            2: lambda session: Stage2Agent(
-                session_context=session,
-                llm_router=self.llm_router,
-            ),
-            3: lambda session: Stage3Agent(
-                session_context=session,
-                llm_router=self.llm_router,
-            ),
-            4: lambda session: Stage4Agent(
-                session_context=session,
-                llm_router=self.llm_router,
-            ),
-            5: lambda session: Stage5Agent(
-                session_context=session,
-                llm_router=self.llm_router,
-            ),
-        }
 
-        # Reflection agents (3 total) - Initialize with LLM router
+        IMPORTANT: Reflection agents must be initialized before stage agents
+        so that the quality_agent can be passed to stage agent factories.
+        """
+        # Initialize reflection agents FIRST (3 total)
         if self.llm_router:
             self.reflection_agents["quality"] = ResponseQualityAgent(
                 llm_router=self.llm_router,
@@ -150,6 +128,55 @@ class Orchestrator:
             self.reflection_agents["stage_gate"] = None
             self.reflection_agents["consistency"] = None
             logger.warning("LLM router not provided - reflection agents not initialized")
+
+        # Get quality agent for stage agents
+        quality_agent = self.reflection_agents.get("quality")
+
+        # Stage agent factory functions
+        # Each returns a lambda that creates an agent with session context AND quality agent
+        # This enables ConversationEngine integration for quality-validated conversations
+        self.stage_agents = {
+            1: lambda session: Stage1Agent(
+                session_context=session,
+                llm_router=self.llm_router,
+                quality_agent=quality_agent,  # Enable ConversationEngine
+                quality_threshold=7.0,
+                max_quality_attempts=3
+            ),
+            2: lambda session: Stage2Agent(
+                session_context=session,
+                llm_router=self.llm_router,
+                quality_agent=quality_agent,  # Enable ConversationEngine
+                quality_threshold=7.0,
+                max_quality_attempts=3
+            ),
+            3: lambda session: Stage3Agent(
+                session_context=session,
+                llm_router=self.llm_router,
+                quality_agent=quality_agent,  # Enable ConversationEngine
+                quality_threshold=7.0,
+                max_quality_attempts=3
+            ),
+            4: lambda session: Stage4Agent(
+                session_context=session,
+                llm_router=self.llm_router,
+                quality_agent=quality_agent,  # Enable ConversationEngine
+                quality_threshold=7.0,
+                max_quality_attempts=3
+            ),
+            5: lambda session: Stage5Agent(
+                session_context=session,
+                llm_router=self.llm_router,
+                quality_agent=quality_agent,  # Enable ConversationEngine
+                quality_threshold=7.0,
+                max_quality_attempts=3
+            ),
+        }
+
+        if quality_agent:
+            logger.info("Stage agents configured with ConversationEngine integration (quality_agent enabled)")
+        else:
+            logger.info("Stage agents configured without ConversationEngine (fallback mode)")
 
     # ========================================================================
     # SESSION MANAGEMENT
