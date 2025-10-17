@@ -402,21 +402,14 @@ class Stage1Agent:
             # Start conversation turn
             await engine.start_turn(question)
 
-            # Simulate user response (in real implementation, this comes from user)
-            # For now, get response from LLM router
-            if hasattr(self.llm_router, 'route') and callable(self.llm_router.route):
-                llm_response = await self.llm_router.route(
-                    prompt=question,
-                    context=self.session_context,
-                )
-                if isinstance(llm_response, dict):
-                    user_response = str(llm_response.get("response", llm_response.get("content", "")))
-                elif hasattr(llm_response, 'content'):
-                    user_response = str(llm_response.content)
-                else:
-                    user_response = str(llm_response)
-            else:
-                user_response = f"Mock response to: {question}"
+            # Get actual user response via interactive CLI
+            from src.cli.interactive import ask_user_question
+
+            user_response = await ask_user_question(
+                question=question,
+                stage_number=1,
+                context=f"Session: {getattr(self.session_context, 'project_name', 'Unknown')}"
+            )
 
             # Process response through conversation engine
             result = await engine.process_response(user_response)
@@ -432,23 +425,25 @@ class Stage1Agent:
                 follow_up_question = result.get("follow_up_question", "Could you please elaborate?")
                 logger.debug(f"Follow-up: {follow_up_question}")
 
-                # Get improved response (simulated for now)
-                if hasattr(self.llm_router, 'route') and callable(self.llm_router.route):
-                    llm_response = await self.llm_router.route(
-                        prompt=follow_up_question,
-                        context=self.session_context,
-                    )
-                    if isinstance(llm_response, dict):
-                        user_response = str(llm_response.get("response", llm_response.get("content", "")))
-                    elif hasattr(llm_response, 'content'):
-                        user_response = str(llm_response.content)
-                    else:
-                        user_response = str(llm_response)
-                else:
-                    user_response = f"Improved mock response to: {follow_up_question}"
+                # Display quality feedback and get improved response via interactive CLI
+                from src.cli.interactive import display_follow_up
+
+                quality_score = result.get("quality_score", 0)
+                issues = result.get("issues", [])
+
+                user_response = await display_follow_up(
+                    follow_up_question=follow_up_question,
+                    quality_score=quality_score,
+                    issues=issues
+                )
 
                 # Process follow-up response
                 result = await engine.process_response(user_response)
+
+            # Display success message
+            from src.cli.interactive import display_quality_success
+            final_score = result.get("quality_score", 10)
+            display_quality_success(final_score)
 
             # Return the final accepted response
             last_user_message = engine.get_context().get_last_user_message()

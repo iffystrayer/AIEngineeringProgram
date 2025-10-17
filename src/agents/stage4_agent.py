@@ -352,8 +352,14 @@ class Stage4Agent:
         # Start conversation turn
         await engine.start_turn(question)
 
-        # Get user response
-        user_response = await self._get_user_response(question)
+        # Get actual user response via interactive CLI
+        from src.cli.interactive import ask_user_question
+
+        user_response = await ask_user_question(
+            question=question,
+            stage_number=4,
+            context=f"Session: {getattr(self.session_context, 'project_name', 'Unknown')}"
+        )
 
         # Process response through conversation engine
         result = await engine.process_response(user_response)
@@ -363,14 +369,28 @@ class Stage4Agent:
             follow_up_question = result.get("follow_up_question")
 
             if follow_up_question:
-                # Ask follow-up question
-                improved_response = await self._get_user_response(follow_up_question)
+                # Display quality feedback and get improved response
+                from src.cli.interactive import display_follow_up
+
+                quality_score = result.get("quality_score", 0)
+                issues = result.get("issues", [])
+
+                improved_response = await display_follow_up(
+                    follow_up_question=follow_up_question,
+                    quality_score=quality_score,
+                    issues=issues
+                )
 
                 # Process improved response
                 result = await engine.process_response(improved_response)
             else:
                 # No follow-up question available, exit loop
                 break
+
+        # Display success message
+        from src.cli.interactive import display_quality_success
+        final_score = result.get("quality_score", 10)
+        display_quality_success(final_score)
 
         # Extract final response from conversation history
         history = engine.get_context().conversation_history
