@@ -20,6 +20,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Union
+from uuid import UUID
 
 from src.models.schemas import (
     Feature,
@@ -30,6 +31,7 @@ from src.models.schemas import (
     QualityAssessment,
     ScopeDefinition,
 )
+from src.conversation import ConversationEngine, ConversationContext, MessageRole
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,7 @@ class Stage1Agent:
         self,
         session_context: Any,
         llm_router: Any,
+        quality_agent: Any = None,  # ResponseQualityAgent
         quality_threshold: float = 7.0,
         max_quality_attempts: int = 3,
     ):
@@ -65,11 +68,13 @@ class Stage1Agent:
         Args:
             session_context: Session information (session_id, project_name, etc.)
             llm_router: LLM routing service for API calls
+            quality_agent: ResponseQualityAgent for response validation (optional)
             quality_threshold: Minimum quality score to accept responses (default: 7.0)
             max_quality_attempts: Maximum quality loop iterations per question (default: 3)
         """
         self.session_context = session_context
         self.llm_router = llm_router
+        self.quality_agent = quality_agent
         self.quality_threshold = quality_threshold
         self.max_quality_attempts = max_quality_attempts
 
@@ -79,6 +84,9 @@ class Stage1Agent:
         # State management
         self.collected_responses: dict[str, Any] = {}
         self.quality_attempts: dict[str, int] = {}
+
+        # Conversation engine will be created per question
+        self.conversation_engine: ConversationEngine = None
 
         logger.info(
             f"Stage1Agent initialized for session {getattr(session_context, 'session_id', 'unknown')}"
@@ -361,7 +369,7 @@ class Stage1Agent:
 
     async def _ask_single_question(self, question: str) -> str:
         """
-        Ask a single question with quality validation loop.
+        Ask a single question with quality validation loop using ConversationEngine.
 
         Args:
             question: The question to ask
@@ -369,19 +377,111 @@ class Stage1Agent:
         Returns:
             Validated response string
         """
+        # Create conversation context for this question
+        session_id = getattr(self.session_context, 'session_id', None)
+        if isinstance(session_id, str):
+            from uuid import uuid4
+            session_id = uuid4()  # Convert string to UUID if needed
+
+        conversation_context = ConversationContext(
+            session_id=session_id,
+            stage_number=1,
+            current_question=question,
+            max_attempts=self.max_quality_attempts
+        )
+
+        # If quality_agent is available, use ConversationEngine
+        if self.quality_agent:
+            # Create conversation engine with real quality agent
+            engine = ConversationEngine(
+                quality_agent=self.quality_agent,
+                llm_router=self.llm_router,
+                context=conversation_context
+            )
+
+            # Start conversation turn
+            await engine.start_turn(question)
+
+            # Simulate user response (in real implementation, this comes from user)
+            # For now, get response from LLM router
+            if hasattr(self.llm_router, 'route') and callable(self.llm_router.route):
+                llm_response = await self.llm_router.route(
+                    prompt=question,
+                    context=self.session_context,
+                )
+                if isinstance(llm_response, dict):
+                    user_response = str(llm_response.get("response", llm_response.get("content", "")))
+                elif hasattr(llm_response, 'content'):
+                    user_response = str(llm_response.content)
+                else:
+                    user_response = str(llm_response)
+            else:
+                user_response = f"Mock response to: {question}"
+
+            # Process response through conversation engine
+            result = await engine.process_response(user_response)
+
+            # If escalated (max attempts), return best response
+            if result.get("escalated"):
+                logger.warning(f"Quality escalation after max attempts for: {question}")
+                return user_response
+
+            # If not acceptable, handle follow-up loop
+            while not result["is_acceptable"] and not result.get("escalated"):
+                # Get follow-up question
+                follow_up_question = result.get("follow_up_question", "Could you please elaborate?")
+                logger.debug(f"Follow-up: {follow_up_question}")
+
+                # Get improved response (simulated for now)
+                if hasattr(self.llm_router, 'route') and callable(self.llm_router.route):
+                    llm_response = await self.llm_router.route(
+                        prompt=follow_up_question,
+                        context=self.session_context,
+                    )
+                    if isinstance(llm_response, dict):
+                        user_response = str(llm_response.get("response", llm_response.get("content", "")))
+                    elif hasattr(llm_response, 'content'):
+                        user_response = str(llm_response.content)
+                    else:
+                        user_response = str(llm_response)
+                else:
+                    user_response = f"Improved mock response to: {follow_up_question}"
+
+                # Process follow-up response
+                result = await engine.process_response(user_response)
+
+            # Return the final accepted response
+            last_user_message = engine.get_context().get_last_user_message()
+            return last_user_message.content if last_user_message else user_response
+
+        else:
+            # Fallback to original implementation if no quality agent
+            logger.warning("No quality agent provided, using fallback validation")
+            return await self._ask_single_question_fallback(question)
+
+    async def _ask_single_question_fallback(self, question: str) -> str:
+        """
+        Fallback method for asking questions without ConversationEngine.
+
+        This is used when no quality_agent is provided for backwards compatibility.
+
+        Args:
+            question: The question to ask
+
+        Returns:
+            Response string
+        """
         attempt = 0
         best_response = ""
         best_score = 0.0
 
         while attempt < self.max_quality_attempts:
-            # Get response (mocked for now, later will use LLM)
+            # Get response
             if hasattr(self.llm_router, 'route') and callable(self.llm_router.route):
-                # Mock or real LLM call
                 llm_response = await self.llm_router.route(
                     prompt=question,
                     context=self.session_context,
                 )
-                # Handle different response formats
                 if isinstance(llm_response, dict):
                     response = str(llm_response.get("response", llm_response.get("content", "")))
                 elif hasattr(llm_response, 'content'):
@@ -389,10 +489,9 @@ class Stage1Agent:
                 else:
                     response = str(llm_response)
             else:
-                # Fallback mock response
                 response = f"Mock response to: {question}"
 
-            # Validate response quality
+            # Validate response quality using fallback validation
             quality_assessment = await self.validate_response_quality(
                 question=question,
                 response=response,

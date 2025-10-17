@@ -20,6 +20,13 @@ try:
 except ImportError:
     UTC = timezone.utc  # type: ignore
 
+from src.utils.logging_sanitizer import setup_sanitized_logging
+from src.exceptions import (
+    SessionNotFoundError,
+    InvalidStageNumberError,
+    StageSkipError,
+    CharterGenerationError,
+)
 from src.agents.stage1_business_translation import Stage1Agent
 from src.agents.stage2_agent import Stage2Agent
 from src.agents.stage3_agent import Stage3Agent
@@ -48,6 +55,9 @@ from src.models.schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+# M-1 Security Fix: Enable PII sanitization for this logger
+setup_sanitized_logging(logger)
 
 
 class Orchestrator:
@@ -90,6 +100,10 @@ class Orchestrator:
 
         # Session state tracking
         self.active_sessions: dict[UUID, Session] = {}
+
+        # M-2 Security Fix: Async locks for thread-safe state management
+        self._session_locks: dict[UUID, asyncio.Lock] = {}
+        self._global_lock: asyncio.Lock = asyncio.Lock()
 
         # Quality loop tracking
         self.quality_attempts: dict[UUID, dict[int, int]] = {}
@@ -179,6 +193,37 @@ class Orchestrator:
             logger.info("Stage agents configured without ConversationEngine (fallback mode)")
 
     # ========================================================================
+    # M-2: LOCK MANAGEMENT HELPERS
+    # ========================================================================
+
+    def _get_session_lock(self, session_id: UUID) -> asyncio.Lock:
+        """
+        Get or create lock for specific session.
+
+        M-2 Security Fix: Prevents race conditions when multiple coroutines
+        access same session concurrently.
+
+        Args:
+            session_id: Session UUID
+
+        Returns:
+            Async lock for the session
+        """
+        if session_id not in self._session_locks:
+            self._session_locks[session_id] = asyncio.Lock()
+        return self._session_locks[session_id]
+
+    async def _cleanup_session_lock(self, session_id: UUID) -> None:
+        """
+        Clean up lock for completed/deleted session.
+
+        Args:
+            session_id: Session UUID
+        """
+        if session_id in self._session_locks:
+            del self._session_locks[session_id]
+
+    # ========================================================================
     # SESSION MANAGEMENT
     # ========================================================================
 
@@ -190,6 +235,9 @@ class Orchestrator:
         """
         Create a new user session.
 
+        M-2 Security Fix: Uses global lock to prevent race conditions during
+        session creation (e.g., duplicate session IDs, concurrent registry updates).
+
         Args:
             user_id: User identifier
             project_name: Name of the AI project
@@ -197,26 +245,28 @@ class Orchestrator:
         Returns:
             Session: Newly created session object
         """
-        session = Session(
-            session_id=uuid4(),
-            user_id=user_id,
-            project_name=project_name,
-            started_at=datetime.now(UTC),
-            last_updated_at=datetime.now(UTC),
-            current_stage=1,
-            stage_data={},
-            conversation_history=[],
-            status=SessionStatus.IN_PROGRESS,
-            checkpoints=[],
-        )
+        # M-2: Use global lock for session creation
+        async with self._global_lock:
+            session = Session(
+                session_id=uuid4(),
+                user_id=user_id,
+                project_name=project_name,
+                started_at=datetime.now(UTC),
+                last_updated_at=datetime.now(UTC),
+                current_stage=1,
+                stage_data={},
+                conversation_history=[],
+                status=SessionStatus.IN_PROGRESS,
+                checkpoints=[],
+            )
 
-        # Store in active sessions
-        self.active_sessions[session.session_id] = session
+            # Store in active sessions
+            self.active_sessions[session.session_id] = session
 
-        # Initialize quality tracking
-        self.quality_attempts[session.session_id] = {}
+            # Initialize quality tracking
+            self.quality_attempts[session.session_id] = {}
 
-        # Persist to database
+        # Persist to database (outside lock - I/O operation)
         if self.db_pool:
             await self._persist_session(session)
 
@@ -248,7 +298,8 @@ class Orchestrator:
                 logger.info(f"Resumed session {session_id}")
                 return session
 
-        raise ValueError(f"Session not found: {session_id}")
+        # M-3: Use specific exception for better error handling
+        raise SessionNotFoundError(str(session_id))
 
     async def get_session_state(self, session_id: UUID) -> Session:
         """
@@ -263,7 +314,8 @@ class Orchestrator:
         if session_id in self.active_sessions:
             return self.active_sessions[session_id]
 
-        raise ValueError(f"Session not found: {session_id}")
+        # M-3: Use specific exception
+        raise SessionNotFoundError(str(session_id))
 
     # ========================================================================
     # STAGE EXECUTION
@@ -272,6 +324,10 @@ class Orchestrator:
     async def run_stage(self, session: Session, stage_number: int) -> Any:
         """
         Execute a specific stage agent.
+
+        M-2 Security Fix: Uses session-specific lock to prevent concurrent
+        execution of same session (e.g., duplicate API calls, race conditions
+        in stage_data updates).
 
         Args:
             session: Current session
@@ -283,41 +339,46 @@ class Orchestrator:
         Raises:
             ValueError: If stage_number is invalid or out of order
         """
-        # Validate stage progression
-        if stage_number not in range(1, 6):
-            raise ValueError(f"Invalid stage number: {stage_number}")
+        # M-2: Acquire session-specific lock for thread-safe execution
+        lock = self._get_session_lock(session.session_id)
+        async with lock:
+            # M-3: Validate stage progression with specific exceptions
+            if stage_number not in range(1, 6):
+                raise InvalidStageNumberError(stage_number)
 
-        if stage_number != session.current_stage:
-            if stage_number > session.current_stage + 1:
-                raise ValueError(
-                    f"Cannot skip to stage {stage_number}. "
-                    f"Current stage is {session.current_stage}"
-                )
+            if stage_number != session.current_stage:
+                if stage_number > session.current_stage + 1:
+                    raise StageSkipError(
+                        requested_stage=stage_number,
+                        current_stage=session.current_stage
+                    )
 
-        # Get stage agent factory
-        agent_factory = self.stage_agents.get(stage_number)
-        if agent_factory is None:
-            logger.warning(f"Stage {stage_number} agent not implemented yet")
-            # For now, create placeholder data
-            stage_data = {"stage": stage_number, "completed": True}
-            session.stage_data[stage_number] = stage_data
-            return stage_data
+            # Get stage agent factory
+            agent_factory = self.stage_agents.get(stage_number)
+            if agent_factory is None:
+                logger.warning(f"Stage {stage_number} agent not implemented yet")
+                # For now, create placeholder data
+                stage_data = {"stage": stage_number, "completed": True}
+                session.stage_data[stage_number] = stage_data
+                return stage_data
 
-        # Create agent instance with session context
-        logger.info(f"Running stage {stage_number} for session {session.session_id}")
-        stage_agent = agent_factory(session)
+            # Create agent instance with session context
+            logger.info(f"Running stage {stage_number} for session {session.session_id}")
+            stage_agent = agent_factory(session)
 
-        # Execute stage agent interview
+        # Execute stage agent interview (outside lock - long-running operation)
         stage_output = await stage_agent.conduct_interview()
 
-        # Store stage output in session
-        session.stage_data[stage_number] = stage_output
-        session.last_updated_at = datetime.now(UTC)
+        # Re-acquire lock for state updates
+        async with lock:
+            # Store stage output in session
+            session.stage_data[stage_number] = stage_output
+            session.last_updated_at = datetime.now(UTC)
 
-        logger.info(
-            f"Stage {stage_number} completed for session {session.session_id}. "
-            f"Output type: {type(stage_output).__name__}"
-        )
+            logger.info(
+                f"Stage {stage_number} completed for session {session.session_id}. "
+                f"Output type: {type(stage_output).__name__}"
+            )
 
         return stage_output
 
@@ -325,17 +386,22 @@ class Orchestrator:
         """
         Advance session to next stage and create checkpoint.
 
+        M-2 Security Fix: Uses lock to ensure atomic stage advancement.
+
         Args:
             session: Current session
         """
-        session.current_stage += 1
-        session.last_updated_at = datetime.now(UTC)
+        # M-2: Lock for atomic stage advancement
+        lock = self._get_session_lock(session.session_id)
+        async with lock:
+            session.current_stage += 1
+            session.last_updated_at = datetime.now(UTC)
 
-        # Mark as completed if past stage 5
-        if session.current_stage > 5:
-            session.status = SessionStatus.COMPLETED
+            # Mark as completed if past stage 5
+            if session.current_stage > 5:
+                session.status = SessionStatus.COMPLETED
 
-        # Create checkpoint
+        # Create checkpoint (has its own locking)
         await self.save_checkpoint(session, session.current_stage - 1)
 
         logger.info(f"Advanced session {session.session_id} to stage {session.current_stage}")
@@ -536,11 +602,19 @@ class Orchestrator:
         Raises:
             ValueError: If session not completed or missing stage data
         """
+        # M-3: Use specific exceptions for charter generation errors
         if session.status != SessionStatus.COMPLETED:
-            raise ValueError("Session must be completed before generating charter")
+            raise CharterGenerationError(
+                "Session must be completed before generating charter",
+                missing_stages=[]
+            )
 
         if len(session.stage_data) < 5:
-            raise ValueError("All 5 stages must be completed")
+            missing_stages = [i for i in range(1, 6) if i not in session.stage_data]
+            raise CharterGenerationError(
+                "All 5 stages must be completed",
+                missing_stages=missing_stages
+            )
 
         # Extract stage deliverables
         problem_statement: ProblemStatement = session.stage_data.get(1)  # type: ignore
@@ -613,6 +687,9 @@ class Orchestrator:
         """
         Save checkpoint after stage completion.
 
+        M-2 Security Fix: Uses lock to prevent concurrent checkpoint creation
+        and ensure data consistency.
+
         Args:
             session: Current session
             stage_number: Stage number that was completed
@@ -620,28 +697,31 @@ class Orchestrator:
         Returns:
             Checkpoint: Created checkpoint
         """
-        checkpoint = Checkpoint(
-            stage_number=stage_number,
-            timestamp=datetime.now(UTC),
-            data_snapshot={
-                "stage_data": session.stage_data.copy(),
-                "conversation_history": [
-                    {
-                        "role": msg.role,
-                        "content": msg.content,
-                        "timestamp": msg.timestamp.isoformat(),
-                    }
-                    for msg in session.conversation_history
-                ],
-                "current_stage": session.current_stage,
-            },
-            validation_status=True,
-            session_id=session.session_id,
-        )
+        # M-2: Lock for checkpoint creation
+        lock = self._get_session_lock(session.session_id)
+        async with lock:
+            checkpoint = Checkpoint(
+                stage_number=stage_number,
+                timestamp=datetime.now(UTC),
+                data_snapshot={
+                    "stage_data": session.stage_data.copy(),
+                    "conversation_history": [
+                        {
+                            "role": msg.role,
+                            "content": msg.content,
+                            "timestamp": msg.timestamp.isoformat(),
+                        }
+                        for msg in session.conversation_history
+                    ],
+                    "current_stage": session.current_stage,
+                },
+                validation_status=True,
+                session_id=session.session_id,
+            )
 
-        session.checkpoints.append(checkpoint)
+            session.checkpoints.append(checkpoint)
 
-        # Persist to database
+        # Persist to database (outside lock - I/O operation)
         if self.db_pool:
             await self._persist_checkpoint(session, checkpoint)
 

@@ -20,7 +20,9 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
+from uuid import UUID
 
+from src.conversation import ConversationEngine, ConversationContext, MessageRole
 from src.models.schemas import (
     CausalLink,
     KPI,
@@ -89,6 +91,7 @@ class Stage2Agent:
         self,
         session_context: Any,
         llm_router: Any,
+        quality_agent: Any = None,  # ResponseQualityAgent
         quality_threshold: float = 7.0,
         max_quality_attempts: int = 3,
     ):
@@ -98,6 +101,7 @@ class Stage2Agent:
         Args:
             session_context: Session information with Stage 1 data
             llm_router: LLM routing service for API calls
+            quality_agent: ResponseQualityAgent for response validation (optional)
             quality_threshold: Minimum quality score to accept responses (default: 7.0)
             max_quality_attempts: Maximum quality loop iterations per question (default: 3)
 
@@ -110,6 +114,7 @@ class Stage2Agent:
 
         self.session_context = session_context
         self.llm_router = llm_router
+        self.quality_agent = quality_agent
         self.quality_threshold = quality_threshold
         self.max_quality_attempts = max_quality_attempts
 
@@ -277,6 +282,90 @@ class Stage2Agent:
         """
         Ask a single question with quality validation loop.
 
+        Uses ConversationEngine when quality_agent is available, otherwise falls back
+        to basic heuristic validation.
+
+        Args:
+            question: The question to ask
+
+        Returns:
+            Validated response string
+        """
+        # Use ConversationEngine if quality_agent is available
+        if self.quality_agent:
+            return await self._ask_single_question_with_conversation_engine(question)
+        else:
+            return await self._ask_single_question_fallback(question)
+
+    async def _ask_single_question_with_conversation_engine(self, question: str) -> str:
+        """
+        Ask question using ConversationEngine for quality validation.
+
+        Args:
+            question: The question to ask
+
+        Returns:
+            Validated response string
+        """
+        # Get session ID (handle different context types)
+        if hasattr(self.session_context, "session_id"):
+            session_id = self.session_context.session_id
+        elif hasattr(self.session_context, "id"):
+            session_id = self.session_context.id
+        else:
+            session_id = UUID("00000000-0000-0000-0000-000000000000")
+
+        # Create conversation context for this question
+        conversation_context = ConversationContext(
+            session_id=session_id,
+            stage_number=2,
+            current_question=question,
+            max_attempts=self.max_quality_attempts
+        )
+
+        # Create conversation engine
+        engine = ConversationEngine(
+            quality_agent=self.quality_agent,
+            llm_router=self.llm_router,
+            context=conversation_context
+        )
+
+        # Start conversation turn
+        await engine.start_turn(question)
+
+        # Get user response
+        user_response = await self._get_user_response(question)
+
+        # Process response through conversation engine
+        result = await engine.process_response(user_response)
+
+        # Handle quality validation loop
+        while not result["is_acceptable"] and not result.get("escalated"):
+            follow_up_question = result.get("follow_up_question")
+
+            if follow_up_question:
+                # Ask follow-up question
+                improved_response = await self._get_user_response(follow_up_question)
+
+                # Process improved response
+                result = await engine.process_response(improved_response)
+            else:
+                # No follow-up question available, exit loop
+                break
+
+        # Extract final response from conversation history
+        history = engine.get_context().conversation_history
+        user_messages = [msg for msg in history if msg.role == MessageRole.USER]
+
+        if user_messages:
+            return user_messages[-1].content
+
+        return ""
+
+    async def _ask_single_question_fallback(self, question: str) -> str:
+        """
+        Ask question with basic heuristic validation (fallback mode).
+
         Args:
             question: The question to ask
 
@@ -289,22 +378,7 @@ class Stage2Agent:
 
         while attempt < self.max_quality_attempts:
             # Get response (mocked for now, later will use LLM)
-            if hasattr(self.llm_router, "route") and callable(self.llm_router.route):
-                # Mock or real LLM call
-                llm_response = await self.llm_router.route(
-                    prompt=question,
-                    context=self.session_context,
-                )
-                # Handle different response formats
-                if isinstance(llm_response, dict):
-                    response = str(llm_response.get("response", llm_response.get("content", "")))
-                elif hasattr(llm_response, "content"):
-                    response = str(llm_response.content)
-                else:
-                    response = str(llm_response)
-            else:
-                # Fallback mock response
-                response = f"Mock response to: {question}"
+            response = await self._get_user_response(question)
 
             # Validate response quality
             quality_assessment = await self.validate_response_quality(
@@ -334,6 +408,33 @@ class Stage2Agent:
         logger.warning(f"Max quality attempts ({self.max_quality_attempts}) reached for question")
 
         return best_response
+
+    async def _get_user_response(self, question: str) -> str:
+        """
+        Get user response to a question (via LLM or mock).
+
+        Args:
+            question: The question being asked
+
+        Returns:
+            User's response string
+        """
+        if hasattr(self.llm_router, "route") and callable(self.llm_router.route):
+            # Mock or real LLM call
+            llm_response = await self.llm_router.route(
+                prompt=question,
+                context=self.session_context,
+            )
+            # Handle different response formats
+            if isinstance(llm_response, dict):
+                return str(llm_response.get("response", llm_response.get("content", "")))
+            elif hasattr(llm_response, "content"):
+                return str(llm_response.content)
+            else:
+                return str(llm_response)
+        else:
+            # Fallback mock response
+            return f"Mock response to: {question}"
 
     async def validate_response_quality(
         self,
