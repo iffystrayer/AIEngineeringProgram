@@ -1,0 +1,150 @@
+# LLM Configuration for Local Ollama Development
+#
+# This configuration uses local Ollama models for cost-free development
+# and testing. Commercial providers can be added for production.
+#
+# Usage:
+#   from src.llm.router import LLMRouter
+#   import yaml
+#
+#   with open("config/llm_config_ollama.yaml") as f:
+#       config = yaml.safe_load(f)
+#
+#   router = LLMRouter(config["llm"])
+
+llm:
+  # Default provider for development
+  default_provider: ollama
+  default_model: llama3.2
+
+  # Provider configurations
+  providers:
+    # Ollama - Local models (FREE, PRIVATE)
+    ollama:
+      base_url: http://host.docker.internal:11434  # Access host from Docker
+      default_model: llama3.2
+      timeout: 120  # Local models can be slower
+      max_retries: 3
+
+      # Model tier mapping
+      models:
+        fast: llama3.2            # Fastest local model (2GB)
+        balanced: gemma3          # Mid-tier (3.3GB)
+        powerful: deepseek-r1     # Most capable (5.2GB)
+        local: llama3.2           # Explicit local tier
+
+      # Model-specific settings
+      model_settings:
+        llama3.2:
+          temperature: 0.7
+          max_tokens: 2000
+          context_length: 8192
+
+        gemma3:
+          temperature: 0.7
+          max_tokens: 2000
+          context_length: 8192
+
+        deepseek-r1:
+          temperature: 0.7
+          max_tokens: 4000
+          context_length: 32768
+
+        qwen3-coder:
+          temperature: 0.7
+          max_tokens: 4000
+          context_length: 32768
+          description: "Best for code generation"
+
+    # Anthropic - Commercial provider (PRODUCTION)
+    # Uncomment and add API key when needed
+    # anthropic:
+    #   api_key: ${ANTHROPIC_API_KEY}
+    #   default_model: claude-3-haiku
+    #   timeout: 30
+    #   max_retries: 3
+    #
+    #   models:
+    #     fast: claude-3-haiku
+    #     balanced: claude-3-sonnet
+    #     powerful: claude-3-opus
+
+    # OpenAI - Commercial provider (PRODUCTION)
+    # Uncomment and add API key when needed
+    # openai:
+    #   api_key: ${OPENAI_API_KEY}
+    #   default_model: gpt-4-turbo
+    #   timeout: 30
+    #   max_retries: 3
+    #
+    #   models:
+    #     fast: gpt-3.5-turbo
+    #     balanced: gpt-4
+    #     powerful: gpt-4-turbo
+
+  # Fallback chain - tries providers in order until success
+  fallback_chain:
+    - ollama
+    # - anthropic  # Add for production fallback
+    # - openai     # Add for production fallback
+
+  # Cost optimization settings
+  cost_optimization: false  # Disabled for local development
+
+  # Rate limiting strategy
+  rate_limit_strategy: exponential_backoff
+  max_concurrent_requests: 5
+
+  # Monitoring and logging
+  enable_metrics: true
+  log_requests: true
+  log_responses: false  # Set to true for debugging
+
+
+# Environment-specific overrides
+environments:
+  development:
+    default_provider: ollama
+    fallback_chain: [ollama]
+
+  staging:
+    default_provider: ollama
+    fallback_chain: [ollama, anthropic]
+
+  production:
+    default_provider: anthropic
+    fallback_chain: [anthropic, ollama]  # Ollama as fallback
+
+
+# Model capabilities reference
+# Use this to understand what each model can do
+model_capabilities:
+  llama3.2:
+    size_gb: 2.0
+    context_length: 8192
+    use_cases: [conversation, qa, general]
+    strengths: Fast, efficient for simple tasks
+
+  gemma3:
+    size_gb: 3.3
+    context_length: 8192
+    use_cases: [conversation, reasoning, analysis]
+    strengths: Good balance of speed and capability
+
+  deepseek-r1:
+    size_gb: 5.2
+    context_length: 32768
+    use_cases: [complex_reasoning, long_context, analysis]
+    strengths: Most capable local model, large context
+
+  qwen3-coder:
+    size_gb: varies
+    context_length: 32768
+    use_cases: [code_generation, code_review, technical]
+    strengths: Specialized for coding tasks
+
+  gpt-oss:20b:
+    size_gb: 13.0
+    context_length: 8192
+    use_cases: [advanced_reasoning, complex_tasks]
+    strengths: Very capable, but slower
