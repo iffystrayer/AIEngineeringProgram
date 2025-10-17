@@ -21,8 +21,8 @@ from src.models.schemas import (
     ProblemStatement,
     MetricAlignmentMatrix,
     DataQualityScorecard,
-    UserAlignmentReport,
-    EthicalRiskProfile
+    UserContext,
+    EthicalRiskReport
 )
 
 
@@ -152,9 +152,9 @@ class TestCompleteMultiStageConversation:
         stage4_output = await stage4_agent.conduct_interview()
 
         # Assert Stage 4 output
-        assert isinstance(stage4_output, UserAlignmentReport)
+        assert isinstance(stage4_output, UserContext)
         assert stage4_output.user_personas is not None
-        assert stage4_output.user_journey is not None
+        assert stage4_output.user_journey_map is not None
 
         # ===== STAGE 5: Ethical Governance =====
         # Create context with Stage 1-4 data
@@ -178,8 +178,8 @@ class TestCompleteMultiStageConversation:
         stage5_output = await stage5_agent.conduct_interview()
 
         # Assert Stage 5 output
-        assert isinstance(stage5_output, EthicalRiskProfile)
-        assert stage5_output.risk_scores is not None
+        assert isinstance(stage5_output, EthicalRiskReport)
+        assert stage5_output.initial_risks is not None
         assert stage5_output.mitigation_strategies is not None
 
         # ===== FINAL ASSERTIONS =====

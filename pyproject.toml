@@ -105,6 +105,7 @@ markers = [
     "tier3: Complete regression tests (E2E, slow)",
     "integration: Integration tests",
     "unit: Unit tests",
+    "slow: Slow tests (may take several minutes)",
 ]
 asyncio_mode = "auto"
 

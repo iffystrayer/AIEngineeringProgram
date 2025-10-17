@@ -351,3 +351,61 @@ class LLMRouter:
             f"LLMRouter(default={self.default_provider_name}, "
             f"providers={list(self.providers.keys())})"
         )
+
+
+# ============================================================================
+# DEFAULT LLM ROUTER INSTANCE
+# ============================================================================
+
+def _create_default_router() -> LLMRouter:
+    """
+    Create a default LLM router instance from environment variables.
+
+    Uses ANTHROPIC_API_KEY from environment for Anthropic provider.
+    Falls back to Ollama (local) if no API key provided.
+
+    Returns:
+        Configured LLMRouter instance
+    """
+    import os
+
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+    ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+
+    config = {
+        "default_provider": "anthropic" if anthropic_key else "ollama",
+        "default_model": "claude-sonnet-4-20250514" if anthropic_key else "llama3",
+        "providers": {},
+        "fallback_chain": [],
+        "cost_optimization": True,
+    }
+
+    # Add Anthropic if API key available
+    if anthropic_key:
+        config["providers"]["anthropic"] = {
+            "api_key": anthropic_key,
+            "default_model": "claude-sonnet-4-20250514",
+            "models": {
+                "fast": "claude-haiku-4-5-20250514",
+                "balanced": "claude-sonnet-4-20250514",
+                "powerful": "claude-sonnet-4-20250514",
+            }
+        }
+        config["fallback_chain"].append("anthropic")
+
+    # Add Ollama (local LLM - always available for cost-free development)
+    config["providers"]["ollama"] = {
+        "base_url": ollama_url,
+        "default_model": "llama3",
+        "models": {
+            "balanced": "llama3",
+            "fast": "llama3",
+        }
+    }
+    config["fallback_chain"].append("ollama")
+
+    return LLMRouter(config)
+
+
+# Global default router instance
+llm_router = _create_default_router()

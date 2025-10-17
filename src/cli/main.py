@@ -215,23 +215,100 @@ async def _start_session_async(
             )
         )
 
-        # Show next steps (placeholder for agent integration)
-        console.print("\n[cyan]Next Steps:[/cyan]")
-        console.print(
-            "  1. [dim]Initialize Stage 1 (Business Translation) Agent[/dim] [yellow]→ Coming in Phase 2[/yellow]"
-        )
-        console.print(
-            "  2. [dim]Begin interactive conversation[/dim] [yellow]→ Coming in Phase 2[/yellow]"
-        )
-        console.print(
-            "  3. [dim]Collect business requirements[/dim] [yellow]→ Coming in Phase 2[/yellow]"
+        # Initialize orchestrator and LLM router
+        console.print("\n[cyan]Initializing AI agents...[/cyan]")
+
+        from src.llm.router import llm_router
+        from src.agents.orchestrator import Orchestrator
+
+        # Create orchestrator with database pool and LLM router
+        orchestrator = Orchestrator(
+            db_pool=db_manager.pool,
+            llm_router=llm_router,
+            config={}
         )
 
+        # Load the session into orchestrator
+        orchestrator.active_sessions[session.session_id] = session
+
+        # Run through stages based on start_stage
+        console.print(f"\n[bold cyan]Starting Multi-Stage Interview (Stages {start_stage}-5)[/bold cyan]")
+
+        for stage_num in range(start_stage, 6):
+            stage_names = {
+                1: "Business Translation",
+                2: "Value Quantification",
+                3: "Data Feasibility",
+                4: "User Centricity",
+                5: "Ethical Governance"
+            }
+            stage_name = stage_names[stage_num]
+
+            console.print(f"\n[bold yellow]{'='*60}[/bold yellow]")
+            console.print(f"[bold cyan]Stage {stage_num}: {stage_name}[/bold cyan]")
+            console.print(f"[bold yellow]{'='*60}[/bold yellow]\n")
+
+            try:
+                # Run the stage
+                with console.status(f"[cyan]Running {stage_name} agent...[/cyan]", spinner="dots"):
+                    stage_output = await orchestrator.run_stage(session, stage_num)
+
+                console.print(f"[bold green]✓ Stage {stage_num} completed successfully![/bold green]")
+                console.print(f"[dim]Output type: {type(stage_output).__name__}[/dim]")
+
+                # Update session context with stage data
+                if stage_num == 1:
+                    session.stage1_data = stage_output
+                elif stage_num == 2:
+                    session.stage2_data = stage_output
+                elif stage_num == 3:
+                    session.stage3_data = stage_output
+                elif stage_num == 4:
+                    session.stage4_data = stage_output
+                elif stage_num == 5:
+                    session.stage5_data = stage_output
+
+                # Advance to next stage (unless we're at stage 5)
+                if stage_num < 5:
+                    await orchestrator.advance_to_next_stage(session)
+                else:
+                    # Mark as completed
+                    from src.models.schemas import SessionStatus
+                    session.status = SessionStatus.COMPLETED
+                    session.last_updated_at = session.started_at  # Update timestamp
+
+            except KeyboardInterrupt:
+                console.print(f"\n[yellow]Paused at Stage {stage_num}[/yellow]")
+                console.print(f"[dim]Resume with: uaip resume {session.session_id}[/dim]")
+                raise
+            except Exception as e:
+                console.print(f"[bold red]Error in Stage {stage_num}:[/bold red] {e}")
+                if config.get("verbose"):
+                    console.print_exception()
+                raise
+
+        # All stages completed - generate charter
+        console.print(f"\n[bold yellow]{'='*60}[/bold yellow]")
+        console.print("[bold green]All Stages Completed![/bold green]")
+        console.print(f"[bold yellow]{'='*60}[/bold yellow]\n")
+
+        with console.status("[cyan]Generating AI Project Charter...[/cyan]", spinner="dots"):
+            charter = await orchestrator.generate_charter(session)
+
+        console.print("\n")
         console.print(
-            "\n[yellow]Note:[/yellow] Full agent conversation workflow will be implemented in Phase 2."
-        )
-        console.print(
-            "[dim]For now, session has been created and saved to database successfully.[/dim]"
+            Panel.fit(
+                f"[bold green]🎉 Project Scoping Complete![/bold green]\n\n"
+                f"[bold]Project:[/bold] {project_name}\n"
+                f"[bold]Session ID:[/bold] {session.session_id}\n"
+                f"[bold]Governance Decision:[/bold] {charter.governance_decision.value}\n"
+                f"[bold]Overall Feasibility:[/bold] {charter.overall_feasibility.value}\n\n"
+                f"[bold cyan]Export your charter:[/bold cyan]\n"
+                f"  uaip export {session.session_id}\n\n"
+                f"[dim]Session completed successfully and saved to database.[/dim]",
+                title="[bold green]Success[/bold green]",
+                border_style="green",
+            )
         )
 
     finally:
