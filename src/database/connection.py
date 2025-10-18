@@ -145,6 +145,11 @@ class DatabaseManager:
         """Check if the pool is initialized."""
         return self._pool is not None
 
+    @property
+    def pool(self) -> Pool | None:
+        """Get the underlying connection pool."""
+        return self._pool
+
     @asynccontextmanager
     async def acquire(self) -> AsyncGenerator[asyncpg.Connection, None]:
         """
