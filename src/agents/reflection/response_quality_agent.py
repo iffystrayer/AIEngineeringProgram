@@ -206,9 +206,30 @@ Provide your evaluation in the JSON format specified in the system prompt."""
 
             # Extract JSON from LLMResponse content
             import json
+            import re
+
             try:
-                # LLMResponse.content contains the JSON string
-                response_dict = json.loads(llm_response.content)
+                content = llm_response.content
+                logger.debug(f"Raw LLM response content: {content[:500]}...")
+
+                # Try to extract JSON from markdown code blocks if present
+                json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(1)
+                    logger.debug("Extracted JSON from markdown code block")
+                else:
+                    # Try to find JSON object in the content
+                    json_match = re.search(r'\{.*\}', content, re.DOTALL)
+                    if json_match:
+                        json_str = json_match.group(0)
+                        logger.debug("Extracted JSON object from content")
+                    else:
+                        json_str = content
+
+                # Parse the JSON
+                response_dict = json.loads(json_str)
+                logger.debug(f"Successfully parsed JSON: {response_dict}")
+
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse JSON from LLM response: {e}")
                 logger.debug(f"Response content: {llm_response.content}")
