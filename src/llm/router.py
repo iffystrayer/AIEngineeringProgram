@@ -129,7 +129,7 @@ class LLMRouter:
 
             # Extract explicit params to avoid duplicate keyword arguments
             base_url = provider_config.get("base_url", "http://localhost:11434")
-            default_model = provider_config.get("default_model", "llama3")
+            default_model = provider_config.get("default_model", "llama3.2:latest")
 
             # Remove explicit params from config dict
             extra_config = {k: v for k, v in provider_config.items()
@@ -402,7 +402,7 @@ def _create_default_router() -> LLMRouter:
 
     config = {
         "default_provider": "anthropic" if anthropic_key else "ollama",
-        "default_model": "claude-sonnet-4-20250514" if anthropic_key else "llama3",
+        "default_model": "claude-sonnet-4-20250514" if anthropic_key else "llama3.2:latest",
         "providers": {},
         "fallback_chain": [],
         "cost_optimization": True,
@@ -424,10 +424,10 @@ def _create_default_router() -> LLMRouter:
     # Add Ollama (local LLM - always available for cost-free development)
     config["providers"]["ollama"] = {
         "base_url": ollama_url,
-        "default_model": "llama3",
+        "default_model": "llama3.2:latest",
         "models": {
-            "balanced": "llama3",
-            "fast": "llama3",
+            "balanced": "llama3.2:latest",
+            "fast": "llama3.2:latest",
         }
     }
     config["fallback_chain"].append("ollama")

@@ -99,16 +99,36 @@ class LLMResponse:
     raw_response: Optional[dict] = None
 
 
-@dataclass
-class LLMError:
-    """Standardized error format for LLM failures."""
+class LLMError(Exception):
+    """Exception raised for LLM provider failures."""
 
-    error_type: str  # "rate_limit", "authentication", "timeout", "invalid_request"
-    message: str
-    provider: str
-    retry_after: Optional[int] = None  # Seconds to wait before retry
-    status_code: Optional[int] = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+    def __init__(
+        self,
+        error_type: str,
+        message: str,
+        provider: str,
+        retry_after: Optional[int] = None,
+        status_code: Optional[int] = None,
+        metadata: Optional[dict[str, Any]] = None,
+    ):
+        """
+        Initialize LLM error.
+
+        Args:
+            error_type: Error type ("rate_limit", "authentication", "timeout", etc.)
+            message: Error message
+            provider: Provider name that raised the error
+            retry_after: Seconds to wait before retry (for rate limits)
+            status_code: HTTP status code if applicable
+            metadata: Additional error metadata
+        """
+        self.error_type = error_type
+        self.message = message
+        self.provider = provider
+        self.retry_after = retry_after
+        self.status_code = status_code
+        self.metadata = metadata or {}
+        super().__init__(f"[{provider}] {error_type}: {message}")
 
 
 class BaseLLMProvider(ABC):
