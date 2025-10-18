@@ -249,11 +249,10 @@ async def _start_session_async(
             console.print(f"[bold yellow]{'='*60}[/bold yellow]\n")
 
             try:
-                # Run the stage
-                with console.status(f"[cyan]Running {stage_name} agent...[/cyan]", spinner="dots"):
-                    stage_output = await orchestrator.run_stage(session, stage_num)
+                # Run the stage (no spinner - stage handles its own interactive prompts)
+                stage_output = await orchestrator.run_stage(session, stage_num)
 
-                console.print(f"[bold green]✓ Stage {stage_num} completed successfully![/bold green]")
+                console.print(f"\n[bold green]✓ Stage {stage_num} completed successfully![/bold green]")
                 console.print(f"[dim]Output type: {type(stage_output).__name__}[/dim]")
 
                 # Update session context with stage data
