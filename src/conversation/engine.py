@@ -348,9 +348,10 @@ class ConversationEngine:
             result = await asyncio.wait_for(
                 self.quality_agent.evaluate_response(
                     question=self.context.current_question,
-                    response=user_response,
-                    context={
-                        "stage_number": self.context.stage_number,
+                    user_response=user_response,
+                    stage_context={
+                        "stage": self.context.stage_number,
+                        "stage_name": f"Stage {self.context.stage_number}",
                         "attempt": self.context.attempt_count
                     }
                 ),
@@ -358,10 +359,10 @@ class ConversationEngine:
             )
 
             return {
-                "quality_score": result.get("quality_score", 0),
-                "is_acceptable": result.get("is_acceptable", False),
-                "issues": result.get("issues", []),
-                "suggested_followups": result.get("suggested_followups", [])
+                "quality_score": result.quality_score,
+                "is_acceptable": result.is_acceptable,
+                "issues": result.issues,
+                "suggested_followups": result.suggested_followups
             }
 
         except asyncio.TimeoutError:
