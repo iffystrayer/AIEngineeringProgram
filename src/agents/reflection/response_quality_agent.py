@@ -188,17 +188,35 @@ Provide your evaluation in the JSON format specified in the system prompt."""
 
         # Call LLM for evaluation
         try:
+            from src.llm.base import ModelTier
+
+            # Construct messages in Anthropic format (system + user)
+            messages = [
+                {"role": "system", "content": self.SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt}
+            ]
+
             llm_response = await self.llm_router.route(
-                model_preference="haiku",  # Use Haiku for fast, cost-effective evaluation
-                system_prompt=self.SYSTEM_PROMPT,
-                user_prompt=user_prompt,
-                response_format="json"
+                prompt=messages,  # Pass messages as prompt
+                model_tier=ModelTier.FAST,  # Use fast tier for Haiku-like performance
+                response_format="json"  # Pass in kwargs
             )
 
             logger.debug(f"LLM evaluation response: {llm_response}")
 
+            # Extract JSON from LLMResponse content
+            import json
+            try:
+                # LLMResponse.content contains the JSON string
+                response_dict = json.loads(llm_response.content)
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON from LLM response: {e}")
+                logger.debug(f"Response content: {llm_response.content}")
+                # Use fallback parsing
+                response_dict = {}
+
             # Parse LLM response
-            assessment = self._parse_llm_response(llm_response, user_response)
+            assessment = self._parse_llm_response(response_dict, user_response)
 
             logger.info(
                 f"Quality assessment complete: score={assessment.quality_score}, "
