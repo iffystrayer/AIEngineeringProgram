@@ -262,13 +262,33 @@ class LLMRouter:
         # Select model based on tier and provider
         model = self._select_model_for_tier(model_tier)
 
+        # Extract known LLMRequest parameters
+        temperature = kwargs.pop("temperature", 0.7)
+        max_tokens = kwargs.pop("max_tokens", 2000)
+        stream = kwargs.pop("stream", False)
+        stop_sequences = kwargs.pop("stop_sequences", [])
+        top_p = kwargs.pop("top_p", 1.0)
+        frequency_penalty = kwargs.pop("frequency_penalty", 0.0)
+        presence_penalty = kwargs.pop("presence_penalty", 0.0)
+        user_id = kwargs.pop("user_id", None)
+
+        # Any remaining kwargs go into metadata (e.g., response_format, etc.)
+        metadata = kwargs.pop("metadata", {})
+        # Add any remaining kwargs to metadata
+        metadata.update(kwargs)
+
         return LLMRequest(
             messages=messages,
             model=model,
-            temperature=kwargs.get("temperature", 0.7),
-            max_tokens=kwargs.get("max_tokens", 2000),
-            stream=kwargs.get("stream", False),
-            **kwargs,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stream=stream,
+            stop_sequences=stop_sequences,
+            top_p=top_p,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
+            user_id=user_id,
+            metadata=metadata,
         )
 
     def _select_model_for_tier(self, model_tier: ModelTier) -> str:
