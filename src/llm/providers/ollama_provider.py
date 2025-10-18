@@ -51,7 +51,7 @@ class OllamaProvider(BaseLLMProvider):
     def __init__(
         self,
         base_url: str = "http://localhost:11434",
-        default_model: str = "llama3.2",
+        default_model: str = "llama3.2:latest",
         timeout: int = 120,  # Ollama can be slower than cloud APIs
         max_retries: int = 3,
         api_key: Optional[str] = None,  # Not used, but keeps interface consistent

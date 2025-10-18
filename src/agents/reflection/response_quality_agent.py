@@ -218,11 +218,11 @@ Provide your evaluation in the JSON format specified in the system prompt."""
                     json_str = json_match.group(1)
                     logger.debug("Extracted JSON from markdown code block")
                 else:
-                    # Try to find JSON object in the content
-                    json_match = re.search(r'\{.*\}', content, re.DOTALL)
-                    if json_match:
-                        json_str = json_match.group(0)
-                        logger.debug("Extracted JSON object from content")
+                    # Try to find and extract a complete JSON object using bracket counting
+                    # This handles nested objects properly
+                    json_str = self._extract_json_object(content)
+                    if json_str:
+                        logger.debug("Extracted JSON object from content using bracket matching")
                     else:
                         json_str = content
 
@@ -249,6 +249,61 @@ Provide your evaluation in the JSON format specified in the system prompt."""
         except Exception as e:
             logger.error(f"Error during response evaluation: {e}", exc_info=True)
             raise
+
+    def _extract_json_object(self, text: str) -> Optional[str]:
+        """
+        Extract a complete JSON object from text using bracket matching.
+
+        This method finds the first '{' and then counts brackets to find
+        the matching '}', ensuring we capture the complete JSON object
+        without any trailing text.
+
+        Args:
+            text: Text potentially containing a JSON object
+
+        Returns:
+            Extracted JSON string or None if no valid JSON found
+        """
+        # Find the first opening brace
+        start_idx = text.find('{')
+        if start_idx == -1:
+            return None
+
+        # Count brackets to find the matching closing brace
+        bracket_count = 0
+        in_string = False
+        escape_next = False
+
+        for i in range(start_idx, len(text)):
+            char = text[i]
+
+            # Handle escape sequences in strings
+            if escape_next:
+                escape_next = False
+                continue
+
+            if char == '\\':
+                escape_next = True
+                continue
+
+            # Track if we're inside a string (to ignore brackets in strings)
+            if char == '"':
+                in_string = not in_string
+                continue
+
+            # Only count brackets outside of strings
+            if not in_string:
+                if char == '{':
+                    bracket_count += 1
+                elif char == '}':
+                    bracket_count -= 1
+
+                    # Found matching closing brace
+                    if bracket_count == 0:
+                        return text[start_idx:i+1]
+
+        # No matching closing brace found
+        return None
 
     def _parse_llm_response(
         self,
