@@ -727,6 +727,55 @@ class TestOrchestratorAgentCoordination:
             if original_factory:
                 orchestrator_instance.stage_agents[1] = original_factory
 
+    @pytest.mark.asyncio
+    async def test_full_stage_progression_integration(self, orchestrator_instance) -> None:
+        """Orchestrator should successfully progress through all 5 stages."""
+        from src.agents.mocks import create_mock_stage_agent
+
+        # Create a test session
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Run through all 5 stages
+        for stage_num in range(1, 6):
+            # Create mock stage agent
+            mock_stage_agent = create_mock_stage_agent(stage_num, session.session_id)
+
+            # Replace the stage agent factory
+            original_factory = orchestrator_instance.stage_agents.get(stage_num)
+            orchestrator_instance.stage_agents[stage_num] = lambda s, stage=stage_num: mock_stage_agent
+
+            try:
+                # Set session to current stage
+                session.current_stage = stage_num
+
+                # Run stage
+                result = await orchestrator_instance.run_stage(session, stage_num)
+
+                # Verify stage was executed
+                assert result is not None
+                assert mock_stage_agent.execution_count == 1
+                assert mock_stage_agent.last_response.stage_number == stage_num
+
+                # Verify stage data was saved
+                assert stage_num in session.stage_data
+                assert session.stage_data[stage_num] == result
+
+                # Advance to next stage
+                if stage_num < 5:
+                    await orchestrator_instance.advance_to_next_stage(session)
+            finally:
+                # Restore original factory
+                if original_factory:
+                    orchestrator_instance.stage_agents[stage_num] = original_factory
+
+        # Verify all stages completed
+        assert session.current_stage == 5  # After stage 5 completion
+        for stage_num in range(1, 6):
+            assert stage_num in session.stage_data
+            assert session.stage_data[stage_num] is not None
+
 
 # ============================================================================
 # TEST CHECKPOINT MANAGEMENT - Skipped until implementation exists
