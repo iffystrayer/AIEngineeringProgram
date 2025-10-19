@@ -498,9 +498,33 @@ class TestOrchestratorIntegration:
     @pytest.mark.asyncio
     async def test_orchestrator_stage1_agent_integration(self, orchestrator_instance) -> None:
         """Orchestrator should successfully invoke Stage1Agent."""
-        # This test requires stage agents to be fully implemented with mocked interactive input
-        # Skipping for now - will be tested in Phase 2 with proper stage agent mocking
-        pytest.skip("Stage 1 agent integration test - requires stage agent mocking")
+        from src.agents.mocks import create_mock_stage_agent
+
+        # Create a test session
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Create mock stage agent
+        mock_stage_agent = create_mock_stage_agent(1, session.session_id)
+
+        # Replace the stage 1 agent factory with a mock factory
+        original_factory = orchestrator_instance.stage_agents.get(1)
+        orchestrator_instance.stage_agents[1] = lambda s: mock_stage_agent
+
+        try:
+            # Run stage 1
+            result = await orchestrator_instance.run_stage(session, 1)
+
+            # Verify stage was executed
+            assert result is not None
+            assert mock_stage_agent.execution_count == 1
+            assert mock_stage_agent.last_response is not None
+            assert mock_stage_agent.last_response.stage_number == 1
+        finally:
+            # Restore original factory
+            if original_factory:
+                orchestrator_instance.stage_agents[1] = original_factory
 
     @pytest.mark.asyncio
     async def test_orchestrator_database_persistence(
@@ -554,16 +578,81 @@ class TestOrchestratorAgentCoordination:
     @pytest.mark.asyncio
     async def test_orchestrator_routes_to_correct_stage_agent(self, orchestrator_instance) -> None:
         """Orchestrator should route to appropriate stage agent based on current stage."""
-        # This test requires stage agents to be fully implemented with mocked interactive input
-        # Skipping for now - will be tested in Phase 2 with proper stage agent mocking
-        pytest.skip("Stage routing test - requires stage agent mocking")
+        from src.agents.mocks import create_mock_stage_agent
+
+        # Create a test session
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Test routing for each stage
+        for stage_num in range(1, 6):
+            # Create mock stage agent
+            mock_stage_agent = create_mock_stage_agent(stage_num, session.session_id)
+
+            # Replace the stage agent factory
+            original_factory = orchestrator_instance.stage_agents.get(stage_num)
+            orchestrator_instance.stage_agents[stage_num] = lambda s, stage=stage_num: mock_stage_agent
+
+            try:
+                # Set session to current stage
+                session.current_stage = stage_num
+
+                # Run stage
+                result = await orchestrator_instance.run_stage(session, stage_num)
+
+                # Verify correct stage agent was invoked
+                assert result is not None
+                assert mock_stage_agent.execution_count == 1
+                assert mock_stage_agent.last_response.stage_number == stage_num
+            finally:
+                # Restore original factory
+                if original_factory:
+                    orchestrator_instance.stage_agents[stage_num] = original_factory
 
     @pytest.mark.asyncio
     async def test_orchestrator_passes_context_between_agents(self, orchestrator_instance) -> None:
         """Stage agents should receive context from previous stages."""
-        # This test requires stage agents to be fully implemented with mocked interactive input
-        # Skipping for now - will be tested in Phase 2 with proper stage agent mocking
-        pytest.skip("Context passing test - requires stage agent mocking")
+        from src.agents.mocks import create_mock_stage_agent
+
+        # Create a test session
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Run stage 1 and capture output
+        mock_stage1 = create_mock_stage_agent(1, session.session_id)
+        original_factory_1 = orchestrator_instance.stage_agents.get(1)
+        orchestrator_instance.stage_agents[1] = lambda s: mock_stage1
+
+        try:
+            result1 = await orchestrator_instance.run_stage(session, 1)
+            assert result1 is not None
+
+            # Advance to stage 2
+            session.current_stage = 2
+
+            # Run stage 2 with context from stage 1
+            mock_stage2 = create_mock_stage_agent(2, session.session_id)
+            original_factory_2 = orchestrator_instance.stage_agents.get(2)
+            orchestrator_instance.stage_agents[2] = lambda s: mock_stage2
+
+            try:
+                result2 = await orchestrator_instance.run_stage(session, 2)
+
+                # Verify stage 2 was executed
+                assert result2 is not None
+                assert mock_stage2.execution_count == 1
+
+                # Verify session contains data from both stages
+                assert 1 in session.stage_data
+                assert 2 in session.stage_data
+            finally:
+                if original_factory_2:
+                    orchestrator_instance.stage_agents[2] = original_factory_2
+        finally:
+            if original_factory_1:
+                orchestrator_instance.stage_agents[1] = original_factory_1
 
     @pytest.mark.asyncio
     async def test_orchestrator_invokes_quality_agent_after_response(
@@ -609,9 +698,34 @@ class TestOrchestratorAgentCoordination:
         self, orchestrator_instance
     ) -> None:
         """Orchestrator should gracefully handle agent communication failures."""
-        # This test requires stage agents to be fully implemented with mocked interactive input
-        # Skipping for now - will be tested in Phase 2 with proper stage agent mocking
-        pytest.skip("Agent communication failure test - requires stage agent mocking")
+        from src.agents.mocks import create_mock_stage_agent
+        from unittest.mock import AsyncMock
+
+        # Create a test session
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Create a mock stage agent that fails
+        mock_stage_agent = create_mock_stage_agent(1, session.session_id)
+
+        # Make conduct_interview raise an exception
+        mock_stage_agent.conduct_interview = AsyncMock(
+            side_effect=Exception("Agent communication failed")
+        )
+
+        # Replace the stage agent factory
+        original_factory = orchestrator_instance.stage_agents.get(1)
+        orchestrator_instance.stage_agents[1] = lambda s: mock_stage_agent
+
+        try:
+            # Attempt to run stage - should handle error gracefully
+            with pytest.raises(Exception, match="Agent communication failed"):
+                await orchestrator_instance.run_stage(session, 1)
+        finally:
+            # Restore original factory
+            if original_factory:
+                orchestrator_instance.stage_agents[1] = original_factory
 
 
 # ============================================================================
@@ -626,9 +740,37 @@ class TestOrchestratorCheckpointManagement:
     @pytest.mark.asyncio
     async def test_save_checkpoint_after_stage_completion(self, orchestrator_instance) -> None:
         """Checkpoint should be saved automatically after each stage completes."""
-        # This test requires stage agents to be fully implemented with mocked interactive input
-        # Skipping for now - will be tested in Phase 2 with proper stage agent mocking
-        pytest.skip("Checkpoint save test - requires stage agent mocking")
+        from src.agents.mocks import create_mock_stage_agent
+
+        # Create a test session
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Create mock stage agent
+        mock_stage_agent = create_mock_stage_agent(1, session.session_id)
+
+        # Replace the stage agent factory
+        original_factory = orchestrator_instance.stage_agents.get(1)
+        orchestrator_instance.stage_agents[1] = lambda s: mock_stage_agent
+
+        try:
+            # Run stage 1
+            result = await orchestrator_instance.run_stage(session, 1)
+            assert result is not None
+
+            # Save checkpoint after stage completion
+            checkpoint = await orchestrator_instance.save_checkpoint(session, 1)
+
+            # Verify checkpoint was created
+            assert checkpoint is not None
+            assert checkpoint.stage_number == 1
+            assert checkpoint.session_id == session.session_id
+            assert checkpoint.stage_data is not None
+        finally:
+            # Restore original factory
+            if original_factory:
+                orchestrator_instance.stage_agents[1] = original_factory
 
     @pytest.mark.asyncio
     async def test_checkpoint_contains_complete_session_state(
@@ -773,6 +915,34 @@ class TestOrchestratorCheckpointManagement:
         self, orchestrator_instance
     ) -> None:
         """Checkpoint should preserve stage validation results."""
-        # This test requires stage agents to be fully implemented with mocked interactive input
-        # Skipping for now - will be tested in Phase 2 with proper stage agent mocking
-        pytest.skip("Checkpoint validation test - requires stage agent mocking")
+        from src.agents.mocks import create_mock_stage_agent
+
+        # Create a test session
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Create mock stage agent
+        mock_stage_agent = create_mock_stage_agent(1, session.session_id)
+
+        # Replace the stage agent factory
+        original_factory = orchestrator_instance.stage_agents.get(1)
+        orchestrator_instance.stage_agents[1] = lambda s: mock_stage_agent
+
+        try:
+            # Run stage 1
+            result = await orchestrator_instance.run_stage(session, 1)
+            assert result is not None
+
+            # Save checkpoint
+            checkpoint = await orchestrator_instance.save_checkpoint(session, 1)
+
+            # Verify checkpoint preserves stage data
+            assert checkpoint is not None
+            assert checkpoint.stage_data is not None
+            assert 1 in checkpoint.stage_data
+            assert checkpoint.stage_data[1] == result
+        finally:
+            # Restore original factory
+            if original_factory:
+                orchestrator_instance.stage_agents[1] = original_factory

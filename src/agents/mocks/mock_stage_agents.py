@@ -59,6 +59,23 @@ class MockStageAgent:
         self.last_response = response
         return response
 
+    async def conduct_interview(self) -> Dict[str, Any]:
+        """Conduct mock interview for this stage.
+
+        Returns:
+            Mock stage output
+        """
+        self.execution_count += 1
+        output = self._generate_stage_output()
+
+        response = MockStageResponse(
+            stage_number=self.stage_number,
+            output=output,
+        )
+
+        self.last_response = response
+        return output
+
     def _generate_stage_output(self) -> Dict[str, Any]:
         """Generate mock output for this stage."""
         if self.stage_number == 1:
