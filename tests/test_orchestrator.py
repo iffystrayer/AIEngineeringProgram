@@ -406,10 +406,6 @@ class TestOrchestratorExecution:
         # Skipping for now - will be tested in Phase 2 with proper LLM mocking
         pytest.skip("Quality loop integration test - requires LLM router mocking")
 
-        # Quality agent should accept or provide feedback
-        assert isinstance(quality_assessment.is_acceptable, bool)
-        assert isinstance(quality_assessment.quality_score, (int, float))
-
     @pytest.mark.asyncio
     async def test_checkpoint_creation(self, orchestrator_instance, mock_db_pool) -> None:
         """Checkpoints should be created after each stage."""
@@ -506,9 +502,6 @@ class TestOrchestratorIntegration:
         # Skipping for now - will be tested in Phase 2 with proper stage agent mocking
         pytest.skip("Stage 1 agent integration test - requires stage agent mocking")
 
-        assert 1 in session.stage_data
-        # Stage data should contain ProblemStatement (or dict representation)
-
     @pytest.mark.asyncio
     async def test_orchestrator_database_persistence(
         self, orchestrator_instance, mock_db_pool
@@ -565,22 +558,12 @@ class TestOrchestratorAgentCoordination:
         # Skipping for now - will be tested in Phase 2 with proper stage agent mocking
         pytest.skip("Stage routing test - requires stage agent mocking")
 
-        # Advance to stage 2
-        session.current_stage = 2
-        await orchestrator_instance.run_stage(session, 2)
-        # Verify Stage2Agent was called
-
     @pytest.mark.asyncio
     async def test_orchestrator_passes_context_between_agents(self, orchestrator_instance) -> None:
         """Stage agents should receive context from previous stages."""
         # This test requires stage agents to be fully implemented with mocked interactive input
         # Skipping for now - will be tested in Phase 2 with proper stage agent mocking
         pytest.skip("Context passing test - requires stage agent mocking")
-
-        # Stage 2 should receive Stage 1 output as context
-        session.current_stage = 2
-        await orchestrator_instance.run_stage(session, 2)
-        # Stage 2 agent should have access to Stage 1 ProblemStatement
 
     @pytest.mark.asyncio
     async def test_orchestrator_invokes_quality_agent_after_response(
@@ -599,13 +582,6 @@ class TestOrchestratorAgentCoordination:
         # This test requires stage agents to be fully implemented with mocked interactive input
         # Skipping for now - will be tested in Phase 2 with proper stage agent mocking
         pytest.skip("Stage gate test - requires stage agent mocking")
-
-        # Attempt to advance to Stage 2 should trigger stage gate validation
-        validation_result = await orchestrator_instance.invoke_stage_gate_validator(session, 1)
-
-        assert hasattr(validation_result, "can_proceed")
-        assert hasattr(validation_result, "validation_issues")
-        assert hasattr(validation_result, "missing_fields")
 
     @pytest.mark.asyncio
     async def test_orchestrator_invokes_consistency_checker_after_all_stages(
@@ -637,18 +613,6 @@ class TestOrchestratorAgentCoordination:
         # Skipping for now - will be tested in Phase 2 with proper stage agent mocking
         pytest.skip("Agent communication failure test - requires stage agent mocking")
 
-        # Mock agent failure
-        orchestrator_instance.stage_agents[1].execute = AsyncMock(
-            side_effect=RuntimeError("Agent communication failed")
-        )
-
-        # Should catch error and handle gracefully
-        with pytest.raises(RuntimeError):
-            await orchestrator_instance.run_stage(session, 1)
-
-        # Session should still be valid and recoverable
-        assert session.status == SessionStatus.IN_PROGRESS
-
 
 # ============================================================================
 # TEST CHECKPOINT MANAGEMENT - Skipped until implementation exists
@@ -665,13 +629,6 @@ class TestOrchestratorCheckpointManagement:
         # This test requires stage agents to be fully implemented with mocked interactive input
         # Skipping for now - will be tested in Phase 2 with proper stage agent mocking
         pytest.skip("Checkpoint save test - requires stage agent mocking")
-
-        # Checkpoint should be created
-        checkpoint = await orchestrator_instance.save_checkpoint(session, 1)
-
-        assert checkpoint is not None
-        assert checkpoint.stage_number == 1
-        assert checkpoint.session_id == session.session_id
 
     @pytest.mark.asyncio
     async def test_checkpoint_contains_complete_session_state(
