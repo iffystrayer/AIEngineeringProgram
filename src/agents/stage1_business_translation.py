@@ -404,15 +404,17 @@ class Stage1Agent:
 
             # Get actual user response via interactive CLI
             from src.cli.interactive import ask_user_question
+            from src.utils.input_helpers import get_user_response_with_validation
 
-            user_response = await ask_user_question(
-                question=question,
-                stage_number=1,
-                context=f"Session: {getattr(self.session_context, 'project_name', 'Unknown')}"
-            )
+            # Get response with automatic empty-response handling
+            async def prompt_callback():
+                return await ask_user_question(
+                    question=question,
+                    stage_number=1,
+                    context=f"Session: {getattr(self.session_context, 'project_name', 'Unknown')}"
+                )
 
-            # Process response through conversation engine
-            result = await engine.process_response(user_response)
+            result = await get_user_response_with_validation(engine, prompt_callback)
 
             # If escalated (max attempts), return best response
             if result.get("escalated"):
@@ -431,14 +433,15 @@ class Stage1Agent:
                 quality_score = result.get("quality_score", 0)
                 issues = result.get("issues", [])
 
-                user_response = await display_follow_up(
-                    follow_up_question=follow_up_question,
-                    quality_score=quality_score,
-                    issues=issues
-                )
+                # Get follow-up response with automatic empty-response handling
+                async def followup_prompt_callback():
+                    return await display_follow_up(
+                        follow_up_question=follow_up_question,
+                        quality_score=quality_score,
+                        issues=issues
+                    )
 
-                # Process follow-up response
-                result = await engine.process_response(user_response)
+                result = await get_user_response_with_validation(engine, followup_prompt_callback)
 
             # Display success message
             from src.cli.interactive import display_quality_success

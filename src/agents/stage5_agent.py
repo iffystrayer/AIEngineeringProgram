@@ -341,7 +341,17 @@ class Stage5Agent:
         )
 
         # Process response through conversation engine
-        result = await engine.process_response(user_response)
+        # Get response with automatic empty-response handling
+        from src.utils.input_helpers import get_user_response_with_validation
+
+        async def prompt_callback():
+            return await ask_user_question(
+                question=question,
+                stage_number=5,
+                context=f"Session: {getattr(self.session_context, 'project_name', 'Unknown')}"
+            )
+
+        result = await get_user_response_with_validation(engine, prompt_callback)
 
         # Handle quality validation loop
         while not result["is_acceptable"] and not result.get("escalated"):
@@ -361,7 +371,15 @@ class Stage5Agent:
                 )
 
                 # Process improved response
-                result = await engine.process_response(improved_response)
+                # Get follow-up response with automatic empty-response handling
+                async def followup_callback():
+                    return await display_follow_up(
+                        follow_up_question=follow_up_question,
+                        quality_score=quality_score,
+                        issues=issues
+                    )
+
+                result = await get_user_response_with_validation(engine, followup_callback)
             else:
                 # No follow-up question available, exit loop
                 break
