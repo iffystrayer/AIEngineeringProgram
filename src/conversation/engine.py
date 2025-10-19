@@ -432,16 +432,19 @@ Issues with the response:
 Generate a specific follow-up question to address these issues and get a more complete answer."""
 
             # Call LLM with timeout
-            follow_up = await asyncio.wait_for(
-                self.llm_router.complete(
+            from src.llm.base import ModelTier
+
+            llm_response = await asyncio.wait_for(
+                self.llm_router.route(
                     prompt=prompt,
+                    model_tier=ModelTier.FAST,
                     max_tokens=150,
                     temperature=0.7
                 ),
                 timeout=TIMEOUT_SECONDS
             )
 
-            return follow_up.strip()
+            return llm_response.content.strip()
 
         except asyncio.TimeoutError:
             logger.error(
