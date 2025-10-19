@@ -395,9 +395,44 @@ class TestOrchestratorExecution:
     @pytest.mark.asyncio
     async def test_stage_progression_order(self, orchestrator_instance) -> None:
         """Stages should complete in order 1→2→3→4→5."""
-        # This test requires stage agents to be fully implemented with mocked interactive input
-        # Skipping for now - will be tested in Phase 2 with proper stage agent mocking
-        pytest.skip("Stage progression test - requires stage agent mocking")
+        from src.agents.mocks import create_mock_stage_agent
+
+        # Create a test session
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Verify initial stage is 1
+        assert session.current_stage == 1
+
+        # Run through stages 1-5 in order
+        for stage_num in range(1, 6):
+            # Create mock stage agent
+            mock_stage_agent = create_mock_stage_agent(stage_num, session.session_id)
+
+            # Replace the stage agent factory
+            original_factory = orchestrator_instance.stage_agents.get(stage_num)
+            orchestrator_instance.stage_agents[stage_num] = lambda s, sn=stage_num: create_mock_stage_agent(sn, s.session_id)
+
+            try:
+                # Run the stage
+                result = await orchestrator_instance.run_stage(session, stage_num)
+                assert result is not None
+
+                # Verify we're still on the correct stage
+                assert session.current_stage == stage_num
+            finally:
+                # Restore original factory
+                if original_factory:
+                    orchestrator_instance.stage_agents[stage_num] = original_factory
+
+            # Advance to next stage
+            await orchestrator_instance.advance_to_next_stage(session)
+            if stage_num < 5:
+                assert session.current_stage == stage_num + 1
+            else:
+                # After stage 5, should be marked as completed
+                assert session.status == SessionStatus.COMPLETED
 
     @pytest.mark.asyncio
     async def test_quality_loop_integration(self, orchestrator_instance) -> None:
@@ -449,9 +484,46 @@ class TestOrchestratorExecution:
     @pytest.mark.asyncio
     async def test_checkpoint_creation(self, orchestrator_instance, mock_db_pool) -> None:
         """Checkpoints should be created after each stage."""
-        # This test requires stage agents to be fully implemented with mocked interactive input
-        # Skipping for now - will be tested in Phase 2 with proper stage agent mocking
-        pytest.skip("Checkpoint creation test - requires stage agent mocking")
+        from src.agents.mocks import create_mock_stage_agent
+
+        # Create a test session
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Run through stages 1-3 and verify checkpoints are created
+        for stage_num in range(1, 4):
+            # Create mock stage agent
+            mock_stage_agent = create_mock_stage_agent(stage_num, session.session_id)
+
+            # Replace the stage agent factory
+            original_factory = orchestrator_instance.stage_agents.get(stage_num)
+            orchestrator_instance.stage_agents[stage_num] = lambda s, sn=stage_num: create_mock_stage_agent(sn, s.session_id)
+
+            try:
+                # Run the stage
+                result = await orchestrator_instance.run_stage(session, stage_num)
+                assert result is not None
+
+                # Save checkpoint after stage
+                checkpoint = await orchestrator_instance.save_checkpoint(session, stage_num)
+
+                # Verify checkpoint was created
+                assert checkpoint is not None
+                assert checkpoint.stage_number == stage_num
+                assert checkpoint.session_id == session.session_id
+                assert checkpoint.stage_data is not None
+                assert stage_num in checkpoint.stage_data
+
+                # Verify checkpoint is in session's checkpoints list
+                assert len(session.checkpoints) >= stage_num
+            finally:
+                # Restore original factory
+                if original_factory:
+                    orchestrator_instance.stage_agents[stage_num] = original_factory
+
+            # Advance to next stage
+            await orchestrator_instance.advance_to_next_stage(session)
 
     @pytest.mark.asyncio
     async def test_governance_decision_critical_risk(self, orchestrator_instance) -> None:
