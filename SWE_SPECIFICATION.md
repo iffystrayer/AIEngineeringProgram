@@ -153,6 +153,27 @@ The U-AIP Scoping Assistant automates the rigorous evaluation process defined in
 - **FR-8.3:** System SHALL provide session history and version control
 - **FR-8.4:** System SHALL support exporting partial progress reports
 
+#### FR-9: Real-Time Progress Tracking
+- **FR-9.1:** System SHALL provide REST API endpoints for session management
+- **FR-9.2:** System SHALL track progress events (stage started, question answered, charter generating, etc.)
+- **FR-9.3:** System SHALL provide Server-Sent Events (SSE) stream for real-time progress updates
+- **FR-9.4:** System SHALL expose progress tracking via `/api/sessions/{id}/progress` endpoint
+- **FR-9.5:** System SHALL expose progress events via `/api/sessions/{id}/events` endpoint
+- **FR-9.6:** System SHALL expose real-time stream via `/api/sessions/{id}/stream` endpoint
+- **FR-9.7:** System SHALL track all errors and failures with detailed error messages
+- **FR-9.8:** System SHALL provide session creation, retrieval, listing, and deletion via REST API
+
+#### FR-10: API Endpoints
+- **FR-10.1:** System SHALL provide `POST /api/sessions` for creating new sessions
+- **FR-10.2:** System SHALL provide `GET /api/sessions/{id}` for retrieving session details
+- **FR-10.3:** System SHALL provide `GET /api/sessions` for listing user sessions
+- **FR-10.4:** System SHALL provide `DELETE /api/sessions/{id}` for deleting sessions
+- **FR-10.5:** System SHALL provide `GET /api/sessions/{id}/progress` for getting session progress
+- **FR-10.6:** System SHALL provide `POST /api/sessions/{id}/answer` for submitting answers
+- **FR-10.7:** System SHALL provide `GET /api/sessions/{id}/events` for retrieving progress events
+- **FR-10.8:** System SHALL provide `GET /api/sessions/{id}/stream` for SSE real-time updates
+- **FR-10.9:** System SHALL provide `GET /health` for health checks
+
 ### 2.2 Non-Functional Requirements
 
 #### NFR-1: Performance
