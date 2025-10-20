@@ -494,7 +494,7 @@ async def _resume_session_async(session_id: UUID, config: dict) -> None:
             for stage in range(1, session.current_stage):
                 console.print(f"  ✓ [dim]Stage {stage}: {stage_names.get(stage, 'Unknown')}[/dim]")
 
-        # Show next steps (placeholder for agent integration)
+        # Show next steps
         console.print("\n[cyan]Next Steps:[/cyan]")
         current_stage_name = {
             1: "Business Translation",
@@ -504,22 +504,24 @@ async def _resume_session_async(session_id: UUID, config: dict) -> None:
             5: "Ethical Evaluation",
         }.get(session.current_stage, "Unknown")
 
-        console.print(
-            f"  1. [dim]Initialize Stage {session.current_stage} ({current_stage_name}) Agent[/dim] "
-            f"[yellow]→ Coming in Phase 2[/yellow]"
-        )
-        console.print(
-            "  2. [dim]Resume interactive conversation[/dim] [yellow]→ Coming in Phase 2[/yellow]"
-        )
-        console.print(
-            f"  3. [dim]Complete Stage {session.current_stage}[/dim] [yellow]→ Coming in Phase 2[/yellow]"
-        )
+        if session.current_stage <= 5:
+            console.print(
+                f"  1. [dim]Continue Stage {session.current_stage} ({current_stage_name})[/dim] "
+                f"[green]✓ Ready[/green]"
+            )
+            console.print(
+                "  2. [dim]Resume interactive conversation[/dim] [green]✓ Ready[/green]"
+            )
+            console.print(
+                f"  3. [dim]Complete Stage {session.current_stage}[/dim] [green]✓ Ready[/green]"
+            )
+        else:
+            console.print("  1. [dim]All stages completed[/dim] [green]✓ Complete[/green]")
+            console.print("  2. [dim]Generate project charter[/dim] [green]✓ Ready[/green]")
+            console.print("  3. [dim]Export charter[/dim] [green]✓ Ready[/green]")
 
         console.print(
-            "\n[yellow]Note:[/yellow] Full agent conversation workflow will be implemented in Phase 2."
-        )
-        console.print(
-            "[dim]For now, session state has been loaded from database successfully.[/dim]"
+            "\n[green]✓ Session state loaded successfully from database.[/green]"
         )
 
     finally:
