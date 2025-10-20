@@ -16,6 +16,9 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from src.database.connection import DatabaseManager
+from src.database.repositories.session_repository import SessionRepository
+
 # Version information
 __version__ = "1.0.0-dev"
 
@@ -806,10 +809,34 @@ def delete_command(ctx: click.Context, session_id: str, force: bool) -> None:
             sys.exit(0)
 
     console.print(f"[yellow]Deleting session {session_id}...[/yellow]")
-    console.print(
-        "\n[yellow]Note:[/yellow] This is a placeholder. "
-        "Actual deletion will be implemented with database integration."
-    )
+
+    # Delete session from database
+    try:
+        db_config = {
+            "host": os.getenv("DB_HOST", "localhost"),
+            "port": int(os.getenv("DB_PORT", "15432")),
+            "database": os.getenv("DB_NAME", "uaip_scoping"),
+            "user": os.getenv("DB_USER", "uaip_user"),
+            "password": os.getenv("DB_PASSWORD", "changeme"),
+        }
+        db_manager = DatabaseManager(db_config)
+        session_repo = SessionRepository(db_manager)
+
+        # Run async delete operation
+        loop = asyncio.get_event_loop()
+        result = loop.run_until_complete(session_repo.delete(session_uuid))
+
+        if result:
+            console.print(
+                f"[green]✓ Session {session_id} deleted successfully.[/green]"
+            )
+        else:
+            console.print(
+                f"[yellow]⚠ Session {session_id} not found or already deleted.[/yellow]"
+            )
+    except Exception as e:
+        console.print(f"[red]✗ Error deleting session: {str(e)}[/red]")
+        sys.exit(1)
 
 
 # ============================================================================
@@ -1032,12 +1059,57 @@ def status_command(ctx: click.Context, session_id: str) -> None:
         console.print("[bold red]Error:[/bold red] Invalid session ID format", style="red")
         sys.exit(1)
 
-    console.print(f"[cyan]Session Status: {session_id}[/cyan]")
+    # Get session from database
+    try:
+        db_config = {
+            "host": os.getenv("DB_HOST", "localhost"),
+            "port": int(os.getenv("DB_PORT", "15432")),
+            "database": os.getenv("DB_NAME", "uaip_scoping"),
+            "user": os.getenv("DB_USER", "uaip_user"),
+            "password": os.getenv("DB_PASSWORD", "changeme"),
+        }
+        db_manager = DatabaseManager(db_config)
+        session_repo = SessionRepository(db_manager)
 
-    console.print(
-        "\n[yellow]Note:[/yellow] This is a placeholder. "
-        "Actual status display will be implemented with database integration."
-    )
+        # Run async get operation
+        loop = asyncio.get_event_loop()
+        session = loop.run_until_complete(session_repo.get_by_id(session_uuid))
+
+        if not session:
+            console.print(f"[yellow]⚠ Session {session_id} not found.[/yellow]")
+            sys.exit(1)
+
+        # Display session information
+        console.print(
+            Panel.fit(
+                f"[bold cyan]Session Status[/bold cyan]\n"
+                f"[dim]ID:[/dim] {session.session_id}\n"
+                f"[dim]Project:[/dim] {session.project_name}\n"
+                f"[dim]User:[/dim] {session.user_id}\n"
+                f"[dim]Status:[/dim] {session.status.value}\n"
+                f"[dim]Current Stage:[/dim] {session.current_stage}/5\n"
+                f"[dim]Created:[/dim] {session.created_at}\n"
+                f"[dim]Updated:[/dim] {session.updated_at}",
+                border_style="cyan",
+            )
+        )
+
+        # Show progress
+        if session.current_stage > 1:
+            console.print("\n[cyan]Completed Stages:[/cyan]")
+            stage_names = {
+                1: "Business Translation",
+                2: "Value Quantification",
+                3: "Data Feasibility",
+                4: "User Centricity",
+                5: "Ethical Evaluation",
+            }
+            for stage in range(1, session.current_stage):
+                console.print(f"  ✓ [dim]Stage {stage}: {stage_names.get(stage, 'Unknown')}[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]✗ Error retrieving session: {str(e)}[/red]")
+        sys.exit(1)
 
 
 # ============================================================================
