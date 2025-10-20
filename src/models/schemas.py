@@ -550,6 +550,8 @@ class Checkpoint:
     validation_status: bool
     checkpoint_id: str = field(default_factory=lambda: str(uuid4()))
     session_id: Optional[UUID] = None  # Optional session reference
+    checksum: Optional[str] = None  # Checksum for data integrity validation
+    cross_stage_issues: list[str] = field(default_factory=list)  # Issues identified across stages
 
     # Compatibility properties for accessing nested data
     @property
@@ -577,6 +579,8 @@ class Session:
     conversation_history: list[Message] = field(default_factory=list)
     status: SessionStatus = SessionStatus.IN_PROGRESS
     checkpoints: list[Checkpoint] = field(default_factory=list)
+    progress_percentage: float = 0.0  # 0-100% progress through workflow
+    data_hash: Optional[str] = None  # Hash for data integrity validation
 
     # Compatibility properties for test API
     @property
@@ -588,6 +592,17 @@ class Session:
     def updated_at(self) -> datetime:
         """Alias for last_updated_at to match test expectations."""
         return self.last_updated_at
+
+    def calculate_progress_percentage(self) -> float:
+        """Calculate progress percentage based on current stage and status."""
+        if self.status == SessionStatus.COMPLETED:
+            return 100.0
+        elif self.status == SessionStatus.ABANDONED:
+            return 0.0
+        else:
+            # Progress is based on current stage (1-5)
+            # Each stage is 20% of the workflow
+            return (self.current_stage - 1) * 20.0
 
     # Dynamic stage data accessors for agent compatibility
     @property
