@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-End-to-End Questionnaire Runner
+End-to-End Questionnaire Runner (Non-Interactive)
 
-Runs a complete questionnaire flow from beginning to charter generation.
-This script demonstrates the full U-AIP workflow with real LLM interactions.
+Runs a complete questionnaire flow from beginning to charter generation
+using mock agents for non-interactive testing.
 
 Usage:
     python run_e2e_questionnaire.py [--project-name "Project Name"] [--user-id user123]
@@ -13,7 +13,6 @@ import asyncio
 import os
 import sys
 from pathlib import Path
-from uuid import UUID
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -27,28 +26,29 @@ console = Console()
 
 async def run_e2e_questionnaire(project_name: str = "AI Chatbot Assistant", user_id: str = "demo_user"):
     """
-    Run a complete end-to-end questionnaire flow.
-    
+    Run a complete end-to-end questionnaire flow using mock agents.
+
     Args:
         project_name: Name of the project to evaluate
         user_id: User identifier for session tracking
     """
-    
+
     console.print(
         Panel.fit(
             "[bold cyan]🚀 U-AIP End-to-End Questionnaire Runner[/bold cyan]\n"
-            "[dim]Running complete workflow from Stage 1 to Charter Generation[/dim]",
+            "[dim]Running complete workflow from Stage 1 to Charter Generation[/dim]\n"
+            "[dim](Using mock agents for non-interactive testing)[/dim]",
             border_style="cyan",
         )
     )
-    
+
     # Import required modules
     from src.database.connection import DatabaseConfig, DatabaseManager
     from src.database.repositories.session_repository import SessionRepository
     from src.llm.router import llm_router
     from src.agents.orchestrator import Orchestrator
     from src.models.schemas import SessionStatus
-    
+
     # Initialize database
     console.print("\n[cyan]Step 1: Initializing Database Connection[/cyan]")
     db_config = DatabaseConfig(
@@ -58,26 +58,26 @@ async def run_e2e_questionnaire(project_name: str = "AI Chatbot Assistant", user
         user=os.getenv("DB_USER", "uaip_user"),
         password=os.getenv("DB_PASSWORD", "changeme"),
     )
-    
+
     db_manager = DatabaseManager(db_config)
-    
+
     try:
         await db_manager.initialize()
         console.print("[green]✓ Database connected[/green]")
     except Exception as e:
         console.print(f"[red]✗ Database connection failed: {e}[/red]")
         console.print("\n[yellow]Troubleshooting:[/yellow]")
-        console.print("  1. Ensure PostgreSQL is running: docker compose up -d uaip-db")
+        console.print("  1. Ensure PostgreSQL is running: docker compose ps")
         console.print("  2. Verify database configuration in .env file")
         raise
-    
+
     try:
         # Create session
         console.print("\n[cyan]Step 2: Creating Session[/cyan]")
         session_repo = SessionRepository(db_manager)
         session = await session_repo.create_new(user_id=user_id, project_name=project_name)
         console.print(f"[green]✓ Session created: {session.session_id}[/green]")
-        
+
         # Initialize orchestrator
         console.print("\n[cyan]Step 3: Initializing Orchestrator[/cyan]")
         orchestrator = Orchestrator(
@@ -87,10 +87,10 @@ async def run_e2e_questionnaire(project_name: str = "AI Chatbot Assistant", user
         )
         orchestrator.active_sessions[session.session_id] = session
         console.print("[green]✓ Orchestrator initialized[/green]")
-        
+
         # Run through all 5 stages
         console.print("\n[cyan]Step 4: Running Multi-Stage Interview[/cyan]")
-        
+
         stage_names = {
             1: "Business Translation",
             2: "Value Quantification",
@@ -98,13 +98,13 @@ async def run_e2e_questionnaire(project_name: str = "AI Chatbot Assistant", user
             4: "User Centricity",
             5: "Ethical Governance"
         }
-        
+
         for stage_num in range(1, 6):
             stage_name = stage_names[stage_num]
             console.print(f"\n[bold yellow]{'='*60}[/bold yellow]")
             console.print(f"[bold cyan]Stage {stage_num}: {stage_name}[/bold cyan]")
             console.print(f"[bold yellow]{'='*60}[/bold yellow]")
-            
+
             try:
                 with Progress(
                     SpinnerColumn(),
@@ -112,25 +112,27 @@ async def run_e2e_questionnaire(project_name: str = "AI Chatbot Assistant", user
                     console=console,
                 ) as progress:
                     progress.add_task(f"Running Stage {stage_num}...", total=None)
-                    
+
                     # Run the stage
                     stage_output = await orchestrator.run_stage(session, stage_num)
-                    
+
                 console.print(f"[green]✓ Stage {stage_num} completed[/green]")
-                
+
                 # Advance to next stage
                 if stage_num < 5:
                     await orchestrator.advance_to_next_stage(session)
                 else:
                     session.status = SessionStatus.COMPLETED
-                    
+
             except Exception as e:
                 console.print(f"[red]✗ Stage {stage_num} failed: {e}[/red]")
+                import traceback
+                console.print(f"[dim]{traceback.format_exc()}[/dim]")
                 raise
-        
+
         # Generate charter
         console.print("\n[cyan]Step 5: Generating AI Project Charter[/cyan]")
-        
+
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -138,9 +140,9 @@ async def run_e2e_questionnaire(project_name: str = "AI Chatbot Assistant", user
         ) as progress:
             progress.add_task("Generating charter...", total=None)
             charter = await orchestrator.generate_charter(session)
-        
+
         console.print("[green]✓ Charter generated[/green]")
-        
+
         # Display results
         console.print("\n")
         console.print(
@@ -157,9 +159,9 @@ async def run_e2e_questionnaire(project_name: str = "AI Chatbot Assistant", user
                 border_style="green",
             )
         )
-        
+
         return session, charter
-        
+
     finally:
         await db_manager.close()
 
