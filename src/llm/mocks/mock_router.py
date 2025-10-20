@@ -56,6 +56,29 @@ class MockLLMRouter:
         """
         self.response_templates.update(templates)
 
+    async def route(
+        self, prompt: Any, model_tier: Optional[str] = None, **kwargs: Any
+    ) -> str:
+        """Route a request to mock LLM (compatible with real router interface).
+
+        Args:
+            prompt: Prompt to send (can be string or list of messages)
+            model_tier: Model tier to use (optional)
+            **kwargs: Additional parameters
+
+        Returns:
+            Response content as string
+        """
+        # Convert prompt to string if it's a list of messages
+        if isinstance(prompt, list):
+            prompt_str = str(prompt)
+        else:
+            prompt_str = prompt
+
+        # Find matching response
+        response_content = self._find_response(prompt_str)
+        return response_content
+
     async def route_request(
         self, prompt: str, model: Optional[str] = None, **kwargs: Any
     ) -> MockLLMResponse:

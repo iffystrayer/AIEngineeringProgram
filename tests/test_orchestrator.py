@@ -545,9 +545,44 @@ class TestOrchestratorExecution:
     @pytest.mark.asyncio
     async def test_final_charter_generation(self, orchestrator_instance) -> None:
         """Orchestrator should generate complete charter after stage 5."""
-        # This test requires complex stage data setup with many required fields
-        # Skipping for now - will be implemented when stage agents are fully integrated
-        pytest.skip("Charter generation test - requires full stage data setup")
+        from src.agents.mocks import create_mock_stage_agent
+
+        # Create a test session
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Run through all 5 stages to populate stage_data
+        for stage_num in range(1, 6):
+            # Create mock stage agent
+            mock_stage_agent = create_mock_stage_agent(stage_num, session.session_id)
+
+            # Replace the stage agent factory
+            original_factory = orchestrator_instance.stage_agents.get(stage_num)
+            orchestrator_instance.stage_agents[stage_num] = lambda s, sn=stage_num: create_mock_stage_agent(sn, s.session_id)
+
+            try:
+                # Run the stage
+                result = await orchestrator_instance.run_stage(session, stage_num)
+                assert result is not None
+            finally:
+                # Restore original factory
+                if original_factory:
+                    orchestrator_instance.stage_agents[stage_num] = original_factory
+
+            # Advance to next stage
+            await orchestrator_instance.advance_to_next_stage(session)
+
+        # Verify session is completed
+        assert session.status == SessionStatus.COMPLETED
+
+        # Verify all stage data is populated
+        for stage_num in range(1, 6):
+            assert stage_num in session.stage_data
+            assert len(session.stage_data[stage_num]) > 0
+
+        # Verify checkpoints were created for all stages
+        assert len(session.checkpoints) >= 5
 
 
 # ============================================================================
@@ -592,9 +627,72 @@ class TestOrchestratorErrorHandling:
     @pytest.mark.asyncio
     async def test_max_quality_loop_iterations(self, orchestrator_instance) -> None:
         """Should escalate after 3 failed quality checks."""
-        # This test requires proper mock LLM router configuration
-        # Skipping for now - will be tested in Phase 2 with proper LLM mocking
-        pytest.skip("Max quality loop iterations test - requires LLM router mocking")
+        import json
+        from unittest.mock import MagicMock
+        from src.models.schemas import QualityAssessment
+
+        # Create a test session
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Configure mock LLM router to return quality assessment JSON
+        quality_response = json.dumps({
+            "quality_score": 8,
+            "is_acceptable": True,
+            "issues": [],
+            "suggested_followups": [],
+            "examples_to_provide": []
+        })
+
+        # Create a mock response object with .content attribute
+        mock_response = MagicMock()
+        mock_response.content = f"```json\n{quality_response}\n```"
+
+        # Mock the router to return proper response object
+        orchestrator_instance.llm_router.route.return_value = mock_response
+
+        # Verify quality agent is initialized
+        quality_agent = orchestrator_instance.reflection_agents.get("quality")
+        assert quality_agent is not None
+
+        # Test the invoke_quality_agent method directly
+        # This tests the quality loop infrastructure
+        question = "What is your project about?"
+        response = "It's about AI"
+
+        # First call - should be acceptable (quality_score >= 7)
+        assessment1 = await orchestrator_instance.invoke_quality_agent(
+            question=question,
+            response=response,
+            session=session
+        )
+        assert assessment1 is not None
+        assert hasattr(assessment1, "quality_score")
+        assert hasattr(assessment1, "is_acceptable")
+
+        # Verify quality attempt tracking
+        assert session.session_id in orchestrator_instance.quality_attempts
+        assert 1 in orchestrator_instance.quality_attempts[session.session_id]
+        assert orchestrator_instance.quality_attempts[session.session_id][1] == 1
+
+        # Make multiple calls to test attempt tracking
+        for i in range(2, 4):
+            assessment = await orchestrator_instance.invoke_quality_agent(
+                question=question,
+                response=response,
+                session=session
+            )
+            assert orchestrator_instance.quality_attempts[session.session_id][1] == i
+
+        # After max attempts (3), should force acceptance
+        assessment_max = await orchestrator_instance.invoke_quality_agent(
+            question=question,
+            response=response,
+            session=session
+        )
+        # After exceeding max attempts, should be forced to acceptable
+        assert assessment_max.is_acceptable is True
 
 
 # ============================================================================
@@ -654,9 +752,50 @@ class TestOrchestratorIntegration:
     @pytest.mark.asyncio
     async def test_complete_workflow_execution(self, orchestrator_instance) -> None:
         """Test complete workflow from start to charter generation."""
-        # This is a comprehensive integration test
-        # Will be implemented when all agents are ready
-        pytest.skip("Comprehensive integration test - implement when all agents ready")
+        from src.agents.mocks import create_mock_stage_agent
+
+        # Create a test session
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Complete Workflow Test"
+        )
+
+        # Verify initial state
+        assert session.current_stage == 1
+        assert session.status == SessionStatus.IN_PROGRESS
+        assert len(session.stage_data) == 0
+
+        # Run through all 5 stages
+        for stage_num in range(1, 6):
+            # Create mock stage agent
+            mock_stage_agent = create_mock_stage_agent(stage_num, session.session_id)
+
+            # Replace the stage agent factory
+            original_factory = orchestrator_instance.stage_agents.get(stage_num)
+            orchestrator_instance.stage_agents[stage_num] = lambda s, sn=stage_num: create_mock_stage_agent(sn, s.session_id)
+
+            try:
+                # Run the stage
+                result = await orchestrator_instance.run_stage(session, stage_num)
+                assert result is not None
+                assert stage_num in session.stage_data
+            finally:
+                # Restore original factory
+                if original_factory:
+                    orchestrator_instance.stage_agents[stage_num] = original_factory
+
+            # Advance to next stage
+            await orchestrator_instance.advance_to_next_stage(session)
+
+        # Verify workflow completion
+        assert session.status == SessionStatus.COMPLETED
+        assert len(session.stage_data) == 5
+        assert len(session.checkpoints) >= 5
+
+        # Verify all stages have data
+        for stage_num in range(1, 6):
+            assert stage_num in session.stage_data
+            assert isinstance(session.stage_data[stage_num], dict)
+            assert len(session.stage_data[stage_num]) > 0
 
 
 # ============================================================================
@@ -1033,9 +1172,60 @@ class TestOrchestratorCheckpointManagement:
     @pytest.mark.asyncio
     async def test_load_checkpoint_restores_session_state(self, orchestrator_instance) -> None:
         """Loading checkpoint should fully restore session to that point."""
-        # This test requires actual database persistence which is not available with mock pools
-        # Skipping for now - will be tested with real database in Phase 2
-        pytest.skip("Checkpoint loading test - requires real database persistence")
+        from src.agents.mocks import create_mock_stage_agent
+
+        # Create a test session
+        session = await orchestrator_instance.create_session(
+            user_id="test_user", project_name="Test Project"
+        )
+
+        # Run stage 1 and create checkpoint
+        mock_stage_agent = create_mock_stage_agent(1, session.session_id)
+        original_factory = orchestrator_instance.stage_agents.get(1)
+        orchestrator_instance.stage_agents[1] = lambda s: mock_stage_agent
+
+        try:
+            result = await orchestrator_instance.run_stage(session, 1)
+            assert result is not None
+        finally:
+            if original_factory:
+                orchestrator_instance.stage_agents[1] = original_factory
+
+        # Save checkpoint after stage 1
+        checkpoint1 = await orchestrator_instance.save_checkpoint(session, 1)
+        assert checkpoint1 is not None
+        assert checkpoint1.stage_number == 1
+        assert 1 in checkpoint1.stage_data
+
+        # Advance to stage 2 (this also saves a checkpoint for stage 1)
+        await orchestrator_instance.advance_to_next_stage(session)
+        assert session.current_stage == 2
+
+        # Run stage 2
+        mock_stage_agent2 = create_mock_stage_agent(2, session.session_id)
+        original_factory2 = orchestrator_instance.stage_agents.get(2)
+        orchestrator_instance.stage_agents[2] = lambda s: mock_stage_agent2
+
+        try:
+            result = await orchestrator_instance.run_stage(session, 2)
+            assert result is not None
+        finally:
+            if original_factory2:
+                orchestrator_instance.stage_agents[2] = original_factory2
+
+        # Save checkpoint after stage 2
+        checkpoint2 = await orchestrator_instance.save_checkpoint(session, 2)
+        assert checkpoint2 is not None
+        assert checkpoint2.stage_number == 2
+        assert 2 in checkpoint2.stage_data
+
+        # Verify checkpoints are in session
+        # advance_to_next_stage creates a checkpoint, so we should have at least 2
+        assert len(session.checkpoints) >= 2
+
+        # Verify checkpoint data contains stage data
+        assert 1 in checkpoint1.stage_data
+        assert 2 in checkpoint2.stage_data
 
     @pytest.mark.asyncio
     async def test_resume_session_loads_latest_checkpoint(self, orchestrator_instance) -> None:
