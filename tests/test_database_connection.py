@@ -154,13 +154,20 @@ class TestDatabaseManager:
     @pytest.mark.asyncio
     async def test_initialize_creates_pool(self, database_manager: DatabaseManager) -> None:
         """Initialize should create connection pool."""
+        from unittest.mock import AsyncMock, MagicMock
+        from contextlib import asynccontextmanager
+
         with patch("asyncpg.create_pool", new_callable=AsyncMock) as mock_create_pool:
             mock_pool = MagicMock()
-            mock_pool.acquire = AsyncMock()
             mock_conn = MagicMock()
             mock_conn.execute = AsyncMock(return_value=None)
-            mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-            mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            # Create a proper async context manager for acquire()
+            @asynccontextmanager
+            async def mock_acquire():
+                yield mock_conn
+
+            mock_pool.acquire = mock_acquire
             mock_create_pool.return_value = mock_pool
 
             await database_manager.initialize()
