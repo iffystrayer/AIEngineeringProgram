@@ -71,19 +71,27 @@ async def mock_db_manager() -> AsyncMock:
 async def test_db_manager() -> AsyncGenerator[Any, None]:
     """
     Create real database manager for integration tests.
-    
+
     Sets up test database and cleans up after tests.
-    
+
     Yields:
         DatabaseManager: Real database manager connected to test database
     """
-    from src.database.connection import DatabaseManager
-    
-    # Use test database
-    os.environ["DATABASE_URL"] = "postgresql://postgres:postgres@localhost:15432/uaip_scoping_test"
-    
-    manager = DatabaseManager()
-    
+    from src.database.connection import DatabaseManager, DatabaseConfig
+
+    # Use test database with correct credentials
+    config = DatabaseConfig(
+        host="localhost",
+        port=15432,
+        database="uaip_scoping_test",
+        user="uaip_user",
+        password="changeme",
+        min_pool_size=1,
+        max_pool_size=5,
+    )
+
+    manager = DatabaseManager(config)
+
     try:
         await manager.initialize()
         yield manager
@@ -164,7 +172,11 @@ def setup_test_env() -> None:
     """Set up test environment variables."""
     os.environ["ENVIRONMENT"] = "test"
     os.environ["LOG_LEVEL"] = "DEBUG"
-    os.environ["DATABASE_URL"] = "postgresql://postgres:postgres@localhost:15432/uaip_scoping_test"
+    os.environ["DB_HOST"] = "localhost"
+    os.environ["DB_PORT"] = "15432"
+    os.environ["DB_NAME"] = "uaip_scoping_test"
+    os.environ["DB_USER"] = "uaip_user"
+    os.environ["DB_PASSWORD"] = "changeme"
 
 
 # ============================================================================
