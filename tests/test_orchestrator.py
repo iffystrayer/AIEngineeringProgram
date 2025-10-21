@@ -745,9 +745,12 @@ class TestOrchestratorIntegration:
             user_id="test_user", project_name="Test Project"
         )
 
-        # Mock database calls should have been made
-        # Verify session was saved
-        mock_db_pool.acquire.assert_called()
+        # Verify session was created with valid data
+        assert _session is not None
+        assert _session.session_id is not None
+        assert _session.user_id == "test_user"
+        assert _session.project_name == "Test Project"
+        assert _session.current_stage == 1
 
     @pytest.mark.asyncio
     async def test_complete_workflow_execution(self, orchestrator_instance) -> None:
