@@ -211,12 +211,12 @@ class TestResumeCommandImplementation:
     ):
         """Resume command should load session from database."""
         # Configure mocks
-        mock_session_repo.get_by_id.return_value = mock_session
+        mock_session_repo.get_by_id = AsyncMock(return_value=mock_session)
 
-        with patch("src.cli.main.DatabaseManager", return_value=mock_db_manager):
-            with patch("src.cli.main.SessionRepository", return_value=mock_session_repo):
+        with patch("src.database.connection.DatabaseManager", return_value=mock_db_manager):
+            with patch("src.database.repositories.session_repository.SessionRepository", return_value=mock_session_repo):
                 result = cli_runner.invoke(
-                    cli, ["resume", str(test_session_id)], catch_exceptions=False
+                    cli, ["resume", str(test_session_id)], input="\n", catch_exceptions=False
                 )
 
                 # Verify get_by_id was called with correct session_id
@@ -318,12 +318,12 @@ class TestResumeCommandErrorHandling:
         """Resume command should handle completed sessions appropriately."""
         # Set session status to completed
         mock_session.status = SessionStatus.COMPLETED
-        mock_session_repo.get_by_id.return_value = mock_session
+        mock_session_repo.get_by_id = AsyncMock(return_value=mock_session)
 
-        with patch("src.cli.main.DatabaseManager", return_value=mock_db_manager):
-            with patch("src.cli.main.SessionRepository", return_value=mock_session_repo):
+        with patch("src.database.connection.DatabaseManager", return_value=mock_db_manager):
+            with patch("src.database.repositories.session_repository.SessionRepository", return_value=mock_session_repo):
                 result = cli_runner.invoke(
-                    cli, ["resume", str(test_session_id)], catch_exceptions=False
+                    cli, ["resume", str(test_session_id)], input="\n", catch_exceptions=False
                 )
 
                 # Should show message about completed status
@@ -341,12 +341,12 @@ class TestResumeCommandErrorHandling:
     ):
         """Resume command should handle abandoned sessions."""
         mock_session.status = SessionStatus.ABANDONED
-        mock_session_repo.get_by_id.return_value = mock_session
+        mock_session_repo.get_by_id = AsyncMock(return_value=mock_session)
 
-        with patch("src.cli.main.DatabaseManager", return_value=mock_db_manager):
-            with patch("src.cli.main.SessionRepository", return_value=mock_session_repo):
+        with patch("src.database.connection.DatabaseManager", return_value=mock_db_manager):
+            with patch("src.database.repositories.session_repository.SessionRepository", return_value=mock_session_repo):
                 result = cli_runner.invoke(
-                    cli, ["resume", str(test_session_id)], catch_exceptions=False
+                    cli, ["resume", str(test_session_id)], input="\n", catch_exceptions=False
                 )
 
                 # Should show message about abandoned status
@@ -371,12 +371,12 @@ class TestResumeCommandOutput:
         self, cli_runner, test_session_id, mock_session, mock_session_repo, mock_db_manager
     ):
         """Resume command should display progress indicator."""
-        mock_session_repo.get_by_id.return_value = mock_session
+        mock_session_repo.get_by_id = AsyncMock(return_value=mock_session)
 
-        with patch("src.cli.main.DatabaseManager", return_value=mock_db_manager):
-            with patch("src.cli.main.SessionRepository", return_value=mock_session_repo):
+        with patch("src.database.connection.DatabaseManager", return_value=mock_db_manager):
+            with patch("src.database.repositories.session_repository.SessionRepository", return_value=mock_session_repo):
                 result = cli_runner.invoke(
-                    cli, ["resume", str(test_session_id)], catch_exceptions=False
+                    cli, ["resume", str(test_session_id)], input="\n", catch_exceptions=False
                 )
 
                 # Should show stage progress (e.g., "3/5" or "Stage 3 of 5")
@@ -392,12 +392,12 @@ class TestResumeCommandOutput:
         self, cli_runner, test_session_id, mock_session, mock_session_repo, mock_db_manager
     ):
         """Resume command should display Rich formatted session summary."""
-        mock_session_repo.get_by_id.return_value = mock_session
+        mock_session_repo.get_by_id = AsyncMock(return_value=mock_session)
 
-        with patch("src.cli.main.DatabaseManager", return_value=mock_db_manager):
-            with patch("src.cli.main.SessionRepository", return_value=mock_session_repo):
+        with patch("src.database.connection.DatabaseManager", return_value=mock_db_manager):
+            with patch("src.database.repositories.session_repository.SessionRepository", return_value=mock_session_repo):
                 result = cli_runner.invoke(
-                    cli, ["resume", str(test_session_id)], catch_exceptions=False
+                    cli, ["resume", str(test_session_id)], input="\n", catch_exceptions=False
                 )
 
                 # Should use Rich formatting (panels, colors)

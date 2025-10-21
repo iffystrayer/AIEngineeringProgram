@@ -222,13 +222,14 @@ class TestStartCommandImplementation:
         self, cli_runner, mock_db_manager, mock_session_repo, mock_session
     ):
         """Start command should initialize DatabaseManager."""
-        mock_session_repo.create_new.return_value = mock_session
+        mock_session_repo.create_new = AsyncMock(return_value=mock_session)
 
-        with patch("src.cli.main.DatabaseManager", return_value=mock_db_manager) as db_mock:
-            with patch("src.cli.main.SessionRepository", return_value=mock_session_repo):
+        with patch("src.database.connection.DatabaseManager", return_value=mock_db_manager) as db_mock:
+            with patch("src.database.repositories.session_repository.SessionRepository", return_value=mock_session_repo):
                 result = cli_runner.invoke(
                     cli,
-                    ["start", "Test Project"],
+                    ["start", "Test Project", "--user-id", "test_user"],
+                    input="\n",
                     catch_exceptions=False,
                 )
 
