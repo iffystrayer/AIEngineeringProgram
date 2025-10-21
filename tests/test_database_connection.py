@@ -157,17 +157,19 @@ class TestDatabaseManager:
         from unittest.mock import AsyncMock, MagicMock
         from contextlib import asynccontextmanager
 
-        with patch("asyncpg.create_pool", new_callable=AsyncMock) as mock_create_pool:
-            mock_pool = MagicMock()
-            mock_conn = MagicMock()
-            mock_conn.execute = AsyncMock(return_value=None)
+        mock_pool = MagicMock()
+        mock_conn = MagicMock()
+        mock_conn.execute = AsyncMock(return_value=None)
 
-            # Create a proper async context manager for acquire()
-            @asynccontextmanager
-            async def mock_acquire():
-                yield mock_conn
+        # Create a proper async context manager for acquire()
+        @asynccontextmanager
+        async def mock_acquire():
+            yield mock_conn
 
-            mock_pool.acquire = mock_acquire
+        mock_pool.acquire = mock_acquire
+
+        # Mock create_pool to return the pool directly (not a coroutine)
+        with patch("asyncpg.create_pool") as mock_create_pool:
             mock_create_pool.return_value = mock_pool
 
             await database_manager.initialize()
@@ -188,13 +190,16 @@ class TestDatabaseManager:
     @pytest.mark.asyncio
     async def test_initialize_is_idempotent(self, database_manager: DatabaseManager) -> None:
         """Initialize should not reinitialize if already initialized."""
-        with patch("asyncpg.create_pool", new_callable=AsyncMock) as mock_create_pool:
+        with patch("asyncpg.create_pool") as mock_create_pool:
             mock_pool = MagicMock()
             mock_pool.acquire = AsyncMock()
             mock_conn = MagicMock()
             mock_conn.execute = AsyncMock()
-            mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-            mock_pool.acquire.return_value.__aexit__ = AsyncMock()
+            from contextlib import asynccontextmanager
+            @asynccontextmanager
+            async def mock_acquire():
+                yield mock_conn
+            mock_pool.acquire = mock_acquire
             mock_create_pool.return_value = mock_pool
 
             await database_manager.initialize()
@@ -206,14 +211,17 @@ class TestDatabaseManager:
     @pytest.mark.asyncio
     async def test_close_closes_pool(self, database_manager: DatabaseManager) -> None:
         """Close should properly close the connection pool."""
-        with patch("asyncpg.create_pool", new_callable=AsyncMock) as mock_create_pool:
+        with patch("asyncpg.create_pool") as mock_create_pool:
             mock_pool = MagicMock()
             mock_pool.acquire = AsyncMock()
             mock_pool.close = AsyncMock()
             mock_conn = MagicMock()
             mock_conn.execute = AsyncMock()
-            mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-            mock_pool.acquire.return_value.__aexit__ = AsyncMock()
+            from contextlib import asynccontextmanager
+            @asynccontextmanager
+            async def mock_acquire():
+                yield mock_conn
+            mock_pool.acquire = mock_acquire
             mock_create_pool.return_value = mock_pool
 
             await database_manager.initialize()
@@ -241,13 +249,16 @@ class TestDatabaseManager:
     @pytest.mark.asyncio
     async def test_acquire_yields_connection(self, database_manager: DatabaseManager) -> None:
         """Acquire should yield database connection."""
-        with patch("asyncpg.create_pool", new_callable=AsyncMock) as mock_create_pool:
+        with patch("asyncpg.create_pool") as mock_create_pool:
             mock_pool = MagicMock()
             mock_pool.acquire = AsyncMock()
             mock_conn = MagicMock()
             mock_conn.execute = AsyncMock()
-            mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-            mock_pool.acquire.return_value.__aexit__ = AsyncMock()
+            from contextlib import asynccontextmanager
+            @asynccontextmanager
+            async def mock_acquire():
+                yield mock_conn
+            mock_pool.acquire = mock_acquire
             mock_create_pool.return_value = mock_pool
 
             await database_manager.initialize()
@@ -258,13 +269,16 @@ class TestDatabaseManager:
     @pytest.mark.asyncio
     async def test_transaction_commits_on_success(self, database_manager: DatabaseManager) -> None:
         """Transaction should commit on successful completion."""
-        with patch("asyncpg.create_pool", new_callable=AsyncMock) as mock_create_pool:
+        with patch("asyncpg.create_pool") as mock_create_pool:
             mock_pool = MagicMock()
             mock_pool.acquire = AsyncMock()
             mock_conn = MagicMock()
             mock_transaction = MagicMock()
-            mock_transaction.__aenter__ = AsyncMock()
-            mock_transaction.__aexit__ = AsyncMock()
+            from contextlib import asynccontextmanager
+            @asynccontextmanager
+            async def mock_acquire():
+                yield mock_conn
+            mock_pool.acquire = mock_acquire
             mock_conn.transaction.return_value = mock_transaction
             mock_conn.execute = AsyncMock()
             mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
@@ -284,13 +298,16 @@ class TestDatabaseManager:
         self, database_manager: DatabaseManager
     ) -> None:
         """Health check should return True when database is healthy."""
-        with patch("asyncpg.create_pool", new_callable=AsyncMock) as mock_create_pool:
+        with patch("asyncpg.create_pool") as mock_create_pool:
             mock_pool = MagicMock()
             mock_pool.acquire = AsyncMock()
             mock_conn = MagicMock()
             mock_conn.fetchval = AsyncMock(return_value=1)
-            mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-            mock_pool.acquire.return_value.__aexit__ = AsyncMock()
+            from contextlib import asynccontextmanager
+            @asynccontextmanager
+            async def mock_acquire():
+                yield mock_conn
+            mock_pool.acquire = mock_acquire
             mock_create_pool.return_value = mock_pool
 
             await database_manager.initialize()
@@ -312,14 +329,17 @@ class TestDatabaseManager:
         self, database_manager: DatabaseManager
     ) -> None:
         """Health check should return False on connection error."""
-        with patch("asyncpg.create_pool", new_callable=AsyncMock) as mock_create_pool:
+        with patch("asyncpg.create_pool") as mock_create_pool:
             mock_pool = MagicMock()
             mock_pool.acquire = AsyncMock()
             mock_conn = MagicMock()
             mock_conn.execute = AsyncMock()
             mock_conn.fetchval = AsyncMock(side_effect=Exception("Connection lost"))
-            mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-            mock_pool.acquire.return_value.__aexit__ = AsyncMock()
+            from contextlib import asynccontextmanager
+            @asynccontextmanager
+            async def mock_acquire():
+                yield mock_conn
+            mock_pool.acquire = mock_acquire
             mock_create_pool.return_value = mock_pool
 
             await database_manager.initialize()
@@ -336,13 +356,16 @@ class TestDatabaseManager:
         script_path = tmp_path / "test_script.sql"
         script_path.write_text("CREATE TABLE test (id INTEGER);")
 
-        with patch("asyncpg.create_pool", new_callable=AsyncMock) as mock_create_pool:
+        with patch("asyncpg.create_pool") as mock_create_pool:
             mock_pool = MagicMock()
             mock_pool.acquire = AsyncMock()
             mock_conn = MagicMock()
             mock_conn.execute = AsyncMock()
-            mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-            mock_pool.acquire.return_value.__aexit__ = AsyncMock()
+            from contextlib import asynccontextmanager
+            @asynccontextmanager
+            async def mock_acquire():
+                yield mock_conn
+            mock_pool.acquire = mock_acquire
             mock_create_pool.return_value = mock_pool
 
             await database_manager.initialize()
@@ -397,13 +420,16 @@ class TestGlobalFunctions:
 
         connection._db_manager = None  # Reset global state
 
-        with patch("asyncpg.create_pool", new_callable=AsyncMock) as mock_create_pool:
+        with patch("asyncpg.create_pool") as mock_create_pool:
             mock_pool = MagicMock()
             mock_pool.acquire = AsyncMock()
             mock_conn = MagicMock()
             mock_conn.execute = AsyncMock()
-            mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-            mock_pool.acquire.return_value.__aexit__ = AsyncMock()
+            from contextlib import asynccontextmanager
+            @asynccontextmanager
+            async def mock_acquire():
+                yield mock_conn
+            mock_pool.acquire = mock_acquire
             mock_create_pool.return_value = mock_pool
 
             manager = await initialize_database(mock_config)
@@ -421,14 +447,17 @@ class TestGlobalFunctions:
 
         connection._db_manager = None  # Reset global state
 
-        with patch("asyncpg.create_pool", new_callable=AsyncMock) as mock_create_pool:
+        with patch("asyncpg.create_pool") as mock_create_pool:
             mock_pool = MagicMock()
             mock_pool.acquire = AsyncMock()
             mock_pool.close = AsyncMock()
             mock_conn = MagicMock()
             mock_conn.execute = AsyncMock()
-            mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-            mock_pool.acquire.return_value.__aexit__ = AsyncMock()
+            from contextlib import asynccontextmanager
+            @asynccontextmanager
+            async def mock_acquire():
+                yield mock_conn
+            mock_pool.acquire = mock_acquire
             mock_create_pool.return_value = mock_pool
 
             await initialize_database(mock_config)
