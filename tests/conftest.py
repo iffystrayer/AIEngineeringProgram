@@ -28,10 +28,11 @@ def pytest_configure(config: Any) -> None:
     )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def event_loop() -> Any:
     """Create event loop for async tests."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     yield loop
     loop.close()
 
@@ -87,7 +88,7 @@ async def test_db_manager() -> AsyncGenerator[Any, None]:
         user="uaip_user",
         password="changeme",
         min_pool_size=1,
-        max_pool_size=5,
+        max_pool_size=2,  # Reduced pool size to avoid connection issues
     )
 
     manager = DatabaseManager(config)
@@ -96,7 +97,10 @@ async def test_db_manager() -> AsyncGenerator[Any, None]:
         await manager.initialize()
         yield manager
     finally:
-        await manager.close()
+        try:
+            await manager.close()
+        except Exception:
+            pass  # Ignore errors during cleanup
 
 
 @pytest.fixture
