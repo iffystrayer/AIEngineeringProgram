@@ -250,7 +250,10 @@ class TestExecution:
     async def test_excellent_response_scores_9_to_10(self, agent_instance, mock_llm_router):
         """Excellent responses (specific, measurable, complete) should score 9-10."""
         # Mock LLM to return excellent evaluation
-        mock_llm_router.route.return_value = {
+        from src.llm.base import LLMResponse
+        import json
+
+        evaluation_data = {
             "quality_score": 9,
             "specificity": "Highly specific with concrete details",
             "measurability": "Quantifiable metrics provided",
@@ -261,6 +264,12 @@ class TestExecution:
             "suggested_followups": [],
             "examples": []
         }
+
+        mock_llm_router.route.return_value = LLMResponse(
+            content=json.dumps(evaluation_data),
+            model="claude-haiku",
+            provider="anthropic"
+        )
 
         question = "What is your business objective?"
         response = "Reduce customer churn rate from 15% to 10% within 6 months by implementing a predictive model that identifies at-risk customers 30 days before potential churn, measured by subscription cancellation rate."
@@ -281,7 +290,8 @@ class TestExecution:
     @pytest.mark.skipif(not AGENT_AVAILABLE, reason="ResponseQualityAgent not implemented yet")
     async def test_good_response_scores_7_to_8(self, agent_instance, mock_llm_router):
         """Good responses (mostly clear, minor gaps) should score 7-8."""
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "quality_score": 7,
             "specificity": "Mostly specific with minor vagueness",
             "measurability": "Some quantifiable elements",
@@ -291,7 +301,10 @@ class TestExecution:
             "issues": ["Could specify exact timeframe more clearly"],
             "suggested_followups": [],
             "examples": []
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         question = "What is your business objective?"
         response = "We want to reduce customer churn to improve retention. Currently we lose about 15% of customers each quarter."
@@ -310,7 +323,8 @@ class TestExecution:
     @pytest.mark.skipif(not AGENT_AVAILABLE, reason="ResponseQualityAgent not implemented yet")
     async def test_needs_improvement_response_scores_5_to_6(self, agent_instance, mock_llm_router):
         """Responses needing improvement (vague/incomplete) should score 5-6."""
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "quality_score": 5,
             "specificity": "Vague, lacks concrete details",
             "measurability": "No quantifiable metrics",
@@ -330,7 +344,10 @@ class TestExecution:
             "examples": [
                 "Example: 'Increase NPS from 40 to 50 within 12 months'"
             ]
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         question = "What is your business objective?"
         response = "Improve customer satisfaction."
@@ -351,7 +368,8 @@ class TestExecution:
     @pytest.mark.skipif(not AGENT_AVAILABLE, reason="ResponseQualityAgent not implemented yet")
     async def test_insufficient_response_scores_0_to_4(self, agent_instance, mock_llm_router):
         """Insufficient responses (requires complete rework) should score 0-4."""
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "quality_score": 2,
             "specificity": "Extremely vague",
             "measurability": "No measurability",
@@ -371,7 +389,10 @@ class TestExecution:
             "examples": [
                 "Example: 'Reduce operational costs by 20% through automated inventory management'"
             ]
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         question = "What is your business objective?"
         response = "Do AI stuff."
@@ -391,7 +412,8 @@ class TestExecution:
     @pytest.mark.skipif(not AGENT_AVAILABLE, reason="ResponseQualityAgent not implemented yet")
     async def test_threshold_enforcement_score_7(self, agent_instance, mock_llm_router):
         """Score of exactly 7 should be acceptable (threshold)."""
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "quality_score": 7,
             "specificity": "Adequate",
             "measurability": "Sufficient",
@@ -401,7 +423,10 @@ class TestExecution:
             "issues": [],
             "suggested_followups": [],
             "examples": []
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         assessment = await agent_instance.evaluate_response(
             question="Test question",
@@ -416,7 +441,8 @@ class TestExecution:
     @pytest.mark.skipif(not AGENT_AVAILABLE, reason="ResponseQualityAgent not implemented yet")
     async def test_threshold_enforcement_score_6(self, agent_instance, mock_llm_router):
         """Score of 6 should be unacceptable (below threshold)."""
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "quality_score": 6,
             "specificity": "Slightly vague",
             "measurability": "Unclear",
@@ -426,7 +452,10 @@ class TestExecution:
             "issues": ["Needs more specificity"],
             "suggested_followups": ["Can you provide more specific details?"],
             "examples": ["Example: ..."]
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         assessment = await agent_instance.evaluate_response(
             question="Test question",
@@ -454,7 +483,8 @@ class TestCapabilities:
     @pytest.mark.skipif(not AGENT_AVAILABLE, reason="ResponseQualityAgent not implemented yet")
     async def test_evaluates_specificity_dimension(self, agent_instance, mock_llm_router):
         """Agent must evaluate specificity (concrete vs. vague)."""
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "quality_score": 4,
             "specificity": "FAIL: Response uses vague terms like 'improve' and 'better' without defining metrics",
             "measurability": "N/A",
@@ -464,7 +494,10 @@ class TestCapabilities:
             "issues": ["Vague language: 'improve efficiency' needs specific metric"],
             "suggested_followups": ["What specific metric measures efficiency in your context?"],
             "examples": []
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         assessment = await agent_instance.evaluate_response(
             question="What metric will you use?",
@@ -479,7 +512,8 @@ class TestCapabilities:
     @pytest.mark.skipif(not AGENT_AVAILABLE, reason="ResponseQualityAgent not implemented yet")
     async def test_evaluates_measurability_dimension(self, agent_instance, mock_llm_router):
         """Agent must evaluate measurability (quantifiable data)."""
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "quality_score": 5,
             "specificity": "Adequate",
             "measurability": "FAIL: No quantifiable metrics or measurements provided",
@@ -492,7 +526,10 @@ class TestCapabilities:
                 "How will you measure this behavior numerically?"
             ],
             "examples": ["Example: 'Predict whether a customer will make a purchase within 30 days (binary classification)'"]
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         assessment = await agent_instance.evaluate_response(
             question="What will your model predict?",
@@ -507,7 +544,8 @@ class TestCapabilities:
     @pytest.mark.skipif(not AGENT_AVAILABLE, reason="ResponseQualityAgent not implemented yet")
     async def test_evaluates_completeness_dimension(self, agent_instance, mock_llm_router):
         """Agent must evaluate completeness (answers full question)."""
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "quality_score": 6,
             "specificity": "Good",
             "measurability": "Good",
@@ -520,7 +558,10 @@ class TestCapabilities:
                 "Why is this the right approach?"
             ],
             "examples": []
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         assessment = await agent_instance.evaluate_response(
             question="What will you do, how will you do it, and why is this the right approach?",
@@ -535,7 +576,8 @@ class TestCapabilities:
     @pytest.mark.skipif(not AGENT_AVAILABLE, reason="ResponseQualityAgent not implemented yet")
     async def test_evaluates_coherence_dimension(self, agent_instance, mock_llm_router):
         """Agent must evaluate coherence (logical consistency)."""
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "quality_score": 3,
             "specificity": "Mixed",
             "measurability": "Unclear",
@@ -548,7 +590,10 @@ class TestCapabilities:
                 "What is the actual output format you need?"
             ],
             "examples": []
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         assessment = await agent_instance.evaluate_response(
             question="What type of ML problem is this?",
@@ -564,7 +609,8 @@ class TestCapabilities:
     @pytest.mark.skipif(not AGENT_AVAILABLE, reason="ResponseQualityAgent not implemented yet")
     async def test_evaluates_relevance_dimension(self, agent_instance, mock_llm_router):
         """Agent must evaluate relevance (stays on-topic)."""
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "quality_score": 2,
             "specificity": "Unclear",
             "measurability": "Unclear",
@@ -577,7 +623,10 @@ class TestCapabilities:
                 "Why are you pursuing this AI project?"
             ],
             "examples": ["Example: 'Increase sales revenue by 15% through personalized recommendations'"]
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         assessment = await agent_instance.evaluate_response(
             question="What is your business objective?",
@@ -592,7 +641,8 @@ class TestCapabilities:
     @pytest.mark.skipif(not AGENT_AVAILABLE, reason="ResponseQualityAgent not implemented yet")
     async def test_generates_2_to_3_targeted_followups(self, agent_instance, mock_llm_router):
         """Agent must generate 2-3 targeted follow-up questions for low scores."""
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "quality_score": 5,
             "specificity": "Vague",
             "measurability": "Unclear",
@@ -606,7 +656,10 @@ class TestCapabilities:
                 "What is your target value and timeframe?"
             ],
             "examples": []
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         assessment = await agent_instance.evaluate_response(
             question="What is your KPI?",
@@ -624,7 +677,8 @@ class TestCapabilities:
     @pytest.mark.skipif(not AGENT_AVAILABLE, reason="ResponseQualityAgent not implemented yet")
     async def test_provides_examples_of_better_responses(self, agent_instance, mock_llm_router):
         """Agent must provide examples of what a better response would include."""
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "quality_score": 4,
             "specificity": "Vague",
             "measurability": "Missing",
@@ -636,7 +690,10 @@ class TestCapabilities:
             "examples": [
                 "Example better response: 'Reduce average support ticket resolution time from 48 hours to 24 hours within 6 months, measured by ticket close timestamp in our CRM system.'"
             ]
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         assessment = await agent_instance.evaluate_response(
             question="What is your objective?",
@@ -666,7 +723,8 @@ class TestIntegration:
     @pytest.mark.skipif(not AGENT_AVAILABLE, reason="ResponseQualityAgent not implemented yet")
     async def test_integrates_with_llm_router(self, agent_instance, mock_llm_router):
         """Agent must use LLM router for evaluation."""
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "quality_score": 8,
             "specificity": "Good",
             "measurability": "Good",
@@ -676,7 +734,10 @@ class TestIntegration:
             "issues": [],
             "suggested_followups": [],
             "examples": []
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         await agent_instance.evaluate_response(
             question="Test question",
@@ -696,7 +757,8 @@ class TestIntegration:
     @pytest.mark.skipif(not AGENT_AVAILABLE, reason="ResponseQualityAgent not implemented yet")
     async def test_uses_system_prompt_for_evaluation(self, agent_instance, mock_llm_router):
         """Agent must use proper system prompt for evaluation (per SWE spec page 24)."""
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "quality_score": 7,
             "specificity": "Adequate",
             "measurability": "Adequate",
@@ -706,7 +768,10 @@ class TestIntegration:
             "issues": [],
             "suggested_followups": [],
             "examples": []
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         await agent_instance.evaluate_response(
             question="Test",
@@ -727,7 +792,8 @@ class TestIntegration:
     @pytest.mark.skipif(not AGENT_AVAILABLE, reason="ResponseQualityAgent not implemented yet")
     async def test_accepts_stage_context_for_stage_specific_evaluation(self, agent_instance, mock_llm_router):
         """Agent must accept and use stage context for stage-specific evaluation."""
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "quality_score": 8,
             "specificity": "Good",
             "measurability": "Good",
@@ -737,7 +803,10 @@ class TestIntegration:
             "issues": [],
             "suggested_followups": [],
             "examples": []
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         # Stage 1 context
         await agent_instance.evaluate_response(
@@ -754,7 +823,8 @@ class TestIntegration:
     @pytest.mark.skipif(not AGENT_AVAILABLE, reason="ResponseQualityAgent not implemented yet")
     async def test_returns_quality_assessment_dataclass(self, agent_instance, mock_llm_router):
         """Agent must return QualityAssessment dataclass."""
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "quality_score": 7,
             "specificity": "Good",
             "measurability": "Good",
@@ -764,7 +834,10 @@ class TestIntegration:
             "issues": [],
             "suggested_followups": [],
             "examples": []
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         result = await agent_instance.evaluate_response(
             question="Test",
@@ -795,7 +868,8 @@ class TestErrorHandling:
     @pytest.mark.skipif(not AGENT_AVAILABLE, reason="ResponseQualityAgent not implemented yet")
     async def test_handles_empty_response(self, agent_instance, mock_llm_router):
         """Agent must handle empty user responses gracefully."""
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "quality_score": 0,
             "specificity": "N/A - empty response",
             "measurability": "N/A",
@@ -805,7 +879,10 @@ class TestErrorHandling:
             "issues": ["No response provided"],
             "suggested_followups": ["Please provide an answer to the question"],
             "examples": []
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         assessment = await agent_instance.evaluate_response(
             question="What is your objective?",
@@ -821,7 +898,8 @@ class TestErrorHandling:
     @pytest.mark.skipif(not AGENT_AVAILABLE, reason="ResponseQualityAgent not implemented yet")
     async def test_handles_very_short_response(self, agent_instance, mock_llm_router):
         """Agent must handle very short responses (1-2 words)."""
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "quality_score": 1,
             "specificity": "Insufficient",
             "measurability": "None",
@@ -831,7 +909,10 @@ class TestErrorHandling:
             "issues": ["Response too short to be meaningful"],
             "suggested_followups": ["Can you elaborate on what you mean by 'yes'?"],
             "examples": []
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         assessment = await agent_instance.evaluate_response(
             question="Do you have a data labeling strategy?",
@@ -864,10 +945,14 @@ class TestErrorHandling:
     async def test_handles_malformed_llm_response(self, agent_instance, mock_llm_router):
         """Agent must handle malformed LLM responses."""
         # Return malformed response missing required fields
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "some_field": "value"
             # Missing quality_score and other required fields
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         # Should either raise exception or return default assessment
         try:
@@ -887,7 +972,8 @@ class TestErrorHandling:
     async def test_handles_score_out_of_range(self, agent_instance, mock_llm_router):
         """Agent must handle LLM returning score outside 0-10 range."""
         # LLM returns invalid score
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "quality_score": 15,  # Out of range
             "specificity": "Good",
             "measurability": "Good",
@@ -897,7 +983,10 @@ class TestErrorHandling:
             "issues": [],
             "suggested_followups": [],
             "examples": []
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         assessment = await agent_instance.evaluate_response(
             question="Test",
@@ -912,7 +1001,8 @@ class TestErrorHandling:
     @pytest.mark.skipif(not AGENT_AVAILABLE, reason="ResponseQualityAgent not implemented yet")
     async def test_handles_very_long_response(self, agent_instance, mock_llm_router):
         """Agent must handle very long responses (1000+ words)."""
-        mock_llm_router.route.return_value = {
+        mock_llm_router.route.return_value = LLMResponse(
+    content=json.dumps({
             "quality_score": 6,
             "specificity": "Mixed - verbose but lacks key specifics",
             "measurability": "Unclear among verbosity",
@@ -922,7 +1012,10 @@ class TestErrorHandling:
             "issues": ["Response is too verbose", "Key metrics buried in excess detail"],
             "suggested_followups": ["Can you summarize the key objective in 2-3 sentences?"],
             "examples": []
-        }
+        }),
+    model="claude-haiku",
+    provider="anthropic"
+)
 
         long_response = "Lorem ipsum " * 500  # Very long response
 
