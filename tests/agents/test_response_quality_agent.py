@@ -14,10 +14,13 @@ before implementation. Following strict TDD methodology:
 The agent will be implemented ONLY after all tests are written and verified.
 """
 
+import json
 import pytest
 from dataclasses import dataclass
 from typing import List, Optional
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
+from src.llm.base import LLMResponse
 
 # Conditional import for TDD - Component may not exist yet
 try:
