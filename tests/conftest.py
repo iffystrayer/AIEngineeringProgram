@@ -99,6 +99,41 @@ async def test_db_manager() -> AsyncGenerator[Any, None]:
         await manager.close()
 
 
+@pytest.fixture
+def api_test_db_manager(event_loop):
+    """
+    Create real database manager for API tests (synchronous fixture).
+
+    This fixture is for use with TestClient which is synchronous.
+    It initializes the database manager using the pytest event loop.
+
+    Yields:
+        DatabaseManager: Real database manager connected to test database
+    """
+    from src.database.connection import DatabaseManager, DatabaseConfig
+
+    # Use test database with correct credentials
+    config = DatabaseConfig(
+        host="localhost",
+        port=15432,
+        database="uaip_scoping_test",
+        user="uaip_user",
+        password="changeme",
+        min_pool_size=2,
+        max_pool_size=10,
+    )
+
+    manager = DatabaseManager(config)
+
+    try:
+        # Initialize using the pytest event loop
+        event_loop.run_until_complete(manager.initialize())
+        yield manager
+    finally:
+        # Close using the pytest event loop
+        event_loop.run_until_complete(manager.close())
+
+
 # ============================================================================
 # COMMON TEST DATA FIXTURES
 # ============================================================================
