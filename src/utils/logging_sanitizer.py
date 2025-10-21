@@ -97,6 +97,9 @@ class LoggingSanitizer:
         # Mask or redact emails
         if self.mask_emails:
             message = EMAIL_PATTERN.sub(self._mask_email, message)
+        else:
+            # If not masking, completely redact emails
+            message = EMAIL_PATTERN.sub(self.redaction_text, message)
 
         # Redact phone numbers
         message = PHONE_PATTERN.sub(self.redaction_text, message)
@@ -104,6 +107,9 @@ class LoggingSanitizer:
         # Mask IP addresses
         if self.mask_ips:
             message = IP_ADDRESS_PATTERN.sub(self._mask_ip, message)
+        else:
+            # If not masking, completely redact IPs
+            message = IP_ADDRESS_PATTERN.sub(self.redaction_text, message)
 
         return message
 
