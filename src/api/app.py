@@ -12,13 +12,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from uuid import UUID, uuid4
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 import json
+import os
+import logging
 
 from src.services.progress_service import ProgressService
 from src.database.connection import DatabaseManager
 from src.database.repositories.session_repository import SessionRepository
+from src.models.schemas import Session, SessionStatus
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -47,13 +52,23 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Add CORS middleware
+# Configure CORS with restricted origins
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+ALLOWED_ORIGINS = [
+    FRONTEND_URL,
+    "http://localhost:5173",  # Local development
+    "http://localhost:3000",  # Alternative local port
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+]
+
+# Add CORS middleware with restricted origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO: Restrict to frontend domain in production
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # Initialize services
@@ -62,8 +77,36 @@ progress_service = ProgressService()
 db_manager = None
 session_repo = None
 
-# In-memory session storage for now (will be replaced with database)
-_sessions_store: dict = {}
+
+# ============================================================================
+# Startup/Shutdown Events
+# ============================================================================
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database connection on startup."""
+    global db_manager, session_repo
+    try:
+        from src.database.connection import DatabaseManager
+        db_manager = DatabaseManager()
+        await db_manager.initialize()
+        session_repo = SessionRepository(db_manager)
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        raise
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Close database connection on shutdown."""
+    global db_manager
+    try:
+        if db_manager:
+            await db_manager.close()
+            logger.info("Database connection closed")
+    except Exception as e:
+        logger.error(f"Error closing database: {e}")
 
 
 # ============================================================================
@@ -74,24 +117,43 @@ _sessions_store: dict = {}
 async def create_session(request: CreateSessionRequest):
     """Create a new session."""
     try:
-        session_id = uuid4()
+        if not session_repo:
+            raise HTTPException(status_code=503, detail="Database not initialized")
+
+        # Create session object
+        session = Session(
+            session_id=uuid4(),
+            user_id=request.user_id,
+            project_name=request.project_name,
+            started_at=datetime.now(timezone.utc),
+            last_updated_at=datetime.now(timezone.utc),
+            current_stage=1,
+            stage_data={},
+            conversation_history=[],
+            status=SessionStatus.IN_PROGRESS,
+            checkpoints=[],
+        )
+
+        # Persist to database
+        await session_repo.create(session)
 
         # Initialize progress tracking
-        progress_service.initialize_session(session_id)
+        progress_service.initialize_session(session.session_id)
 
-        # Save session to in-memory store
-        session_data = {
-            "session_id": str(session_id),
-            "user_id": request.user_id,
-            "project_name": request.project_name,
-            "description": request.description,
-            "started_at": datetime.now().isoformat(),
-            "status": "IN_PROGRESS",
+        logger.info(f"Created session {session.session_id} for user {request.user_id}")
+
+        return {
+            "session_id": str(session.session_id),
+            "user_id": session.user_id,
+            "project_name": session.project_name,
+            "started_at": session.started_at.isoformat(),
+            "status": session.status.value,
+            "current_stage": session.current_stage,
         }
-        _sessions_store[str(session_id)] = session_data
-
-        return session_data
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Failed to create session: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -99,20 +161,33 @@ async def create_session(request: CreateSessionRequest):
 async def get_session(session_id: str):
     """Get session details."""
     try:
+        if not session_repo:
+            raise HTTPException(status_code=503, detail="Database not initialized")
+
         # Validate UUID format
         try:
             session_uuid = UUID(session_id)
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid session ID format")
 
-        # Get session from store
-        if str(session_uuid) not in _sessions_store:
+        # Get session from database
+        session = await session_repo.get(session_uuid)
+        if not session:
             raise HTTPException(status_code=404, detail="Session not found")
 
-        return _sessions_store[str(session_uuid)]
+        return {
+            "session_id": str(session.session_id),
+            "user_id": session.user_id,
+            "project_name": session.project_name,
+            "started_at": session.started_at.isoformat(),
+            "last_updated_at": session.last_updated_at.isoformat(),
+            "status": session.status.value,
+            "current_stage": session.current_stage,
+        }
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Failed to get session: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -120,13 +195,28 @@ async def get_session(session_id: str):
 async def list_sessions(user_id: str = Query(...)):
     """List sessions for a user."""
     try:
-        # Filter sessions by user_id
-        user_sessions = [
-            session for session in _sessions_store.values()
-            if session.get("user_id") == user_id
+        if not session_repo:
+            raise HTTPException(status_code=503, detail="Database not initialized")
+
+        # Get sessions from database
+        sessions = await session_repo.get_by_user(user_id)
+
+        return [
+            {
+                "session_id": str(session.session_id),
+                "user_id": session.user_id,
+                "project_name": session.project_name,
+                "started_at": session.started_at.isoformat(),
+                "last_updated_at": session.last_updated_at.isoformat(),
+                "status": session.status.value,
+                "current_stage": session.current_stage,
+            }
+            for session in sessions
         ]
-        return user_sessions
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Failed to list sessions: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -134,20 +224,24 @@ async def list_sessions(user_id: str = Query(...)):
 async def delete_session(session_id: str):
     """Delete a session."""
     try:
+        if not session_repo:
+            raise HTTPException(status_code=503, detail="Database not initialized")
+
         # Validate UUID format
         try:
             session_uuid = UUID(session_id)
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid session ID format")
 
-        # Delete from store
-        if str(session_uuid) in _sessions_store:
-            del _sessions_store[str(session_uuid)]
+        # Delete from database
+        await session_repo.delete(session_uuid)
+        logger.info(f"Deleted session {session_uuid}")
 
         return None
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Failed to delete session: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

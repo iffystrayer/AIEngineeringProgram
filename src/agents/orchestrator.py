@@ -80,6 +80,7 @@ class Orchestrator:
         db_pool: Any,
         llm_router: Union[Any, None] = None,
         config: Union[dict[str, Any], None] = None,
+        db_manager: Union[Any, None] = None,
     ):
         """
         Initialize Orchestrator with required dependencies.
@@ -88,16 +89,20 @@ class Orchestrator:
             db_pool: Database connection pool for persistence
             llm_router: LLM router for agent communication (optional for testing)
             config: Configuration dictionary (optional)
+            db_manager: DatabaseManager instance for repository initialization
         """
         self.db_pool = db_pool
+        self.db_manager = db_manager
         self.llm_router = llm_router
         self.config = config or {}
 
         # Initialize repositories for database access
-        # Note: Repositories expect a DatabaseManager, but we receive a pool
-        # We'll create them lazily when needed or pass None for testing
-        self.session_repo: Union[SessionRepository, None] = None
-        self.checkpoint_repo: Union[CheckpointRepository, None] = None
+        if db_manager:
+            self.session_repo: Union[SessionRepository, None] = SessionRepository(db_manager)
+            self.checkpoint_repo: Union[CheckpointRepository, None] = CheckpointRepository(db_manager)
+        else:
+            self.session_repo: Union[SessionRepository, None] = None
+            self.checkpoint_repo: Union[CheckpointRepository, None] = None
 
         # Agent registries - will be populated when agents are implemented
         self.stage_agents: dict[int, Any] = {}
@@ -770,30 +775,13 @@ class Orchestrator:
         Uses SessionRepository to save session state including stage data,
         conversation history, and checkpoints.
         """
-        if not self.db_pool:
-            logger.debug("No database pool available, skipping session persistence")
+        if not self.session_repo:
+            logger.debug("No session repository available, skipping session persistence")
             return
 
         try:
-            # For testing with mock pools, we need to handle the case where
-            # db_pool doesn't have a proper DatabaseManager interface
-            # In production, db_pool is db_manager.pool from DatabaseManager
-
-            # Try to use the pool directly if it has the right interface
-            if hasattr(self.db_pool, 'acquire') and callable(self.db_pool.acquire):
-                # Call acquire() to trigger mock tracking in tests
-                conn_context = self.db_pool.acquire()
-
-                # Handle both real asyncpg pool and mock
-                if asyncio.iscoroutine(conn_context):
-                    # Real asyncpg pool or async mock
-                    conn = await conn_context
-                    logger.debug(f"Persisted session {session.session_id}")
-                else:
-                    # Sync mock or context manager
-                    logger.debug(f"Persisted session {session.session_id}")
-            else:
-                logger.debug(f"Database pool doesn't support persistence, skipping")
+            await self.session_repo.create(session)
+            logger.info(f"Persisted session {session.session_id} to database")
         except Exception as e:
             logger.error(f"Failed to persist session {session.session_id}: {e}")
             # Don't raise - allow session to continue even if persistence fails
@@ -811,17 +799,15 @@ class Orchestrator:
         Returns:
             Session object if found, None otherwise
         """
-        if not self.db_pool:
-            logger.debug("No database pool available, cannot load session")
+        if not self.session_repo:
+            logger.debug("No session repository available, cannot load session")
             return None
 
         try:
-            # For testing with mock pools, we can't actually load from database
-            # In production, this would use SessionRepository to load from DB
-            # For now, return None to indicate session not found in DB
-            # (it may exist in active_sessions)
-            logger.debug(f"Attempted to load session {session_id} from database")
-            return None
+            session = await self.session_repo.get(session_id)
+            if session:
+                logger.info(f"Loaded session {session_id} from database")
+            return session
         except Exception as e:
             logger.error(f"Failed to load session {session_id}: {e}")
             return None
@@ -836,14 +822,13 @@ class Orchestrator:
             session: Session object
             checkpoint: Checkpoint to persist
         """
-        if not self.db_pool:
-            logger.debug("No database pool available, skipping checkpoint persistence")
+        if not self.checkpoint_repo:
+            logger.debug("No checkpoint repository available, skipping checkpoint persistence")
             return
 
         try:
-            # For testing with mock pools, we can't actually persist to database
-            # In production, this would use CheckpointRepository
-            logger.debug(f"Persisted checkpoint for stage {checkpoint.stage_number}")
+            await self.checkpoint_repo.create(session.session_id, checkpoint)
+            logger.info(f"Persisted checkpoint for stage {checkpoint.stage_number} to database")
         except Exception as e:
             logger.error(f"Failed to persist checkpoint: {e}")
 
@@ -859,15 +844,15 @@ class Orchestrator:
         Returns:
             Session object if checkpoint found, None otherwise
         """
-        if not self.db_pool:
-            logger.debug("No database pool available, cannot load checkpoint")
+        if not self.checkpoint_repo:
+            logger.debug("No checkpoint repository available, cannot load checkpoint")
             return None
 
         try:
-            # For testing with mock pools, we can't actually load from database
-            # In production, this would use CheckpointRepository
-            logger.debug(f"Attempted to load checkpoint {checkpoint_id} from database")
-            return None
+            session = await self.checkpoint_repo.get_session_from_checkpoint(checkpoint_id)
+            if session:
+                logger.info(f"Loaded session from checkpoint {checkpoint_id}")
+            return session
         except Exception as e:
             logger.error(f"Failed to load checkpoint {checkpoint_id}: {e}")
             return None
