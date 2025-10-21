@@ -22,9 +22,9 @@ from src.models.schemas import Session, SessionStatus
 
 
 @pytest.fixture
-def session_repository() -> SessionRepository:
-    """Create SessionRepository instance (mock DB will be injected in tests)."""
-    return SessionRepository()
+async def session_repository(mock_db_manager) -> SessionRepository:
+    """Create SessionRepository instance with mock database manager."""
+    return SessionRepository(mock_db_manager)
 
 
 @pytest.fixture

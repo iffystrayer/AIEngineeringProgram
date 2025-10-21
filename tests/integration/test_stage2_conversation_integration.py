@@ -22,13 +22,53 @@ class TestStage2ConversationIntegration:
     @pytest.fixture
     def mock_stage1_data(self):
         """Create mock Stage 1 ProblemStatement."""
+        from src.models.schemas import Feature, OutputDefinition, ScopeDefinition, FeatureAccessibilityReport
+
         return ProblemStatement(
             business_objective="Reduce customer churn by 15% within 6 months",
+            ai_necessity_justification="ML model can predict churn patterns better than rule-based systems",
             ml_archetype=MLArchetype.CLASSIFICATION,
-            target_output="Churn probability score for each customer",
-            input_features=["usage_frequency", "support_tickets", "payment_history"],
-            success_criteria="80% precision at 50% recall",
-            constraints=["Must process within 100ms", "Comply with GDPR"]
+            ml_archetype_justification="Classification task to predict churn probability",
+            target_output=OutputDefinition(
+                name="Churn Probability",
+                type="probability",
+                description="Probability score for each customer"
+            ),
+            input_features=[
+                Feature(
+                    name="usage_frequency",
+                    data_type="numeric",
+                    description="Monthly usage frequency",
+                    source_system="analytics",
+                    availability_in_production=True
+                ),
+                Feature(
+                    name="support_tickets",
+                    data_type="numeric",
+                    description="Number of support tickets",
+                    source_system="support_system",
+                    availability_in_production=True
+                ),
+                Feature(
+                    name="payment_history",
+                    data_type="categorical",
+                    description="Payment history status",
+                    source_system="billing",
+                    availability_in_production=True
+                )
+            ],
+            scope_boundaries=ScopeDefinition(
+                in_scope=["Customer churn prediction"],
+                out_of_scope=["Churn prevention strategies"],
+                assumptions=["Historical data is representative"],
+                constraints=["Must process within 100ms", "Comply with GDPR"]
+            ),
+            feature_availability=FeatureAccessibilityReport(
+                all_features_available=True,
+                unavailable_features=[],
+                latency_concerns=[],
+                access_method_issues=[]
+            )
         )
 
     @pytest.fixture

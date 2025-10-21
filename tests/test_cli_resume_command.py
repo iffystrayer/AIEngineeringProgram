@@ -206,8 +206,7 @@ class TestResumeCommandImplementation:
     """Tests for resume command implementation with database."""
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-    @pytest.mark.asyncio
-    async def test_resume_command_loads_session_from_database(
+    def test_resume_command_loads_session_from_database(
         self, cli_runner, test_session_id, mock_session, mock_session_repo, mock_db_manager
     ):
         """Resume command should load session from database."""
@@ -227,8 +226,7 @@ class TestResumeCommandImplementation:
                 assert result.exit_code == 0 or str(test_session_id) in result.output
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-    @pytest.mark.asyncio
-    async def test_resume_command_displays_session_information(
+    def test_resume_command_displays_session_information(
         self, cli_runner, test_session_id, mock_session, mock_session_repo, mock_db_manager
     ):
         """Resume command should display loaded session information."""
@@ -277,8 +275,7 @@ class TestResumeCommandErrorHandling:
     """Tests for resume command error handling."""
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-    @pytest.mark.asyncio
-    async def test_resume_handles_session_not_found(
+    def test_resume_handles_session_not_found(
         self, cli_runner, test_session_id, mock_session_repo, mock_db_manager
     ):
         """Resume command should handle session not found error."""
@@ -299,8 +296,7 @@ class TestResumeCommandErrorHandling:
                     )
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-    @pytest.mark.asyncio
-    async def test_resume_handles_database_connection_failure(
+        def test_resume_handles_database_connection_failure(
         self, cli_runner, test_session_id, mock_db_manager
     ):
         """Resume command should handle database connection failures gracefully."""
@@ -316,8 +312,7 @@ class TestResumeCommandErrorHandling:
                 assert "Error" in result.output or "error" in result.output.lower()
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-    @pytest.mark.asyncio
-    async def test_resume_handles_completed_session(
+        def test_resume_handles_completed_session(
         self, cli_runner, test_session_id, mock_session, mock_session_repo, mock_db_manager
     ):
         """Resume command should handle completed sessions appropriately."""
@@ -341,8 +336,7 @@ class TestResumeCommandErrorHandling:
                 )
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-    @pytest.mark.asyncio
-    async def test_resume_handles_abandoned_session(
+        def test_resume_handles_abandoned_session(
         self, cli_runner, test_session_id, mock_session, mock_session_repo, mock_db_manager
     ):
         """Resume command should handle abandoned sessions."""
@@ -373,8 +367,7 @@ class TestResumeCommandOutput:
     """Tests for resume command output formatting."""
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-    @pytest.mark.asyncio
-    async def test_resume_displays_progress_indicator(
+        def test_resume_displays_progress_indicator(
         self, cli_runner, test_session_id, mock_session, mock_session_repo, mock_db_manager
     ):
         """Resume command should display progress indicator."""
@@ -395,8 +388,7 @@ class TestResumeCommandOutput:
                 )
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-    @pytest.mark.asyncio
-    async def test_resume_displays_session_summary_panel(
+        def test_resume_displays_session_summary_panel(
         self, cli_runner, test_session_id, mock_session, mock_session_repo, mock_db_manager
     ):
         """Resume command should display Rich formatted session summary."""
@@ -422,8 +414,7 @@ class TestResumeCommandIntegration:
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
     @pytest.mark.integration
-    @pytest.mark.asyncio
-    async def test_resume_command_loads_real_session(self, cli_runner):
+        def test_resume_command_loads_real_session(self, cli_runner):
         """
         Integration test: Resume command loads real database session.
 

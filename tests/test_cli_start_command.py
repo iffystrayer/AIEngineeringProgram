@@ -188,8 +188,7 @@ class TestStartCommandImplementation:
     """Tests for start command implementation with database."""
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-    @pytest.mark.asyncio
-    async def test_start_command_creates_database_session(
+        def test_start_command_creates_database_session(
         self, cli_runner, mock_session, mock_session_repo, mock_db_manager
     ):
         """Start command should create session in database."""
@@ -215,8 +214,7 @@ class TestStartCommandImplementation:
                 assert str(mock_session.session_id) in result.output or result.exit_code == 0
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-    @pytest.mark.asyncio
-    async def test_start_command_initializes_database_manager(
+        def test_start_command_initializes_database_manager(
         self, cli_runner, mock_db_manager, mock_session_repo, mock_session
     ):
         """Start command should initialize DatabaseManager."""
@@ -290,8 +288,7 @@ class TestStartCommandErrorHandling:
     """Tests for start command error handling."""
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-    @pytest.mark.asyncio
-    async def test_start_handles_database_connection_failure(
+        def test_start_handles_database_connection_failure(
         self, cli_runner, mock_db_manager
     ):
         """Start command should handle database connection failures gracefully."""
@@ -310,8 +307,7 @@ class TestStartCommandErrorHandling:
                 assert "Error" in result.output or "error" in result.output.lower()
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-    @pytest.mark.asyncio
-    async def test_start_handles_keyboard_interrupt(self, cli_runner, mock_session_repo):
+        def test_start_handles_keyboard_interrupt(self, cli_runner, mock_session_repo):
         """Start command should handle Ctrl+C gracefully."""
         # Configure mock to raise KeyboardInterrupt
         mock_session_repo.create_new.side_effect = KeyboardInterrupt()
@@ -328,8 +324,7 @@ class TestStartCommandErrorHandling:
             assert result.exit_code in [0, 1]
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-    @pytest.mark.asyncio
-    async def test_start_handles_database_write_failure(
+        def test_start_handles_database_write_failure(
         self, cli_runner, mock_session_repo, mock_db_manager
     ):
         """Start command should handle database write failures."""
@@ -361,8 +356,7 @@ class TestStartCommandOutput:
     """Tests for start command output formatting."""
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-    @pytest.mark.asyncio
-    async def test_start_displays_session_information(
+        def test_start_displays_session_information(
         self, cli_runner, mock_session, mock_session_repo, mock_db_manager
     ):
         """Start command should display session information."""
@@ -386,8 +380,7 @@ class TestStartCommandOutput:
                 )
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-    @pytest.mark.asyncio
-    async def test_start_displays_welcome_panel(
+        def test_start_displays_welcome_panel(
         self, cli_runner, mock_session, mock_session_repo, mock_db_manager
     ):
         """Start command should display Rich formatted welcome panel."""
@@ -416,8 +409,7 @@ class TestStartCommandIntegration:
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
     @pytest.mark.integration
-    @pytest.mark.asyncio
-    async def test_start_command_creates_real_session(self, cli_runner):
+        def test_start_command_creates_real_session(self, cli_runner):
         """
         Integration test: Start command creates real database session.
 

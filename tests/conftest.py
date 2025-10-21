@@ -1,0 +1,182 @@
+"""
+Pytest Configuration and Fixtures
+
+Provides shared fixtures for all tests including:
+- Mock database manager
+- Test database setup
+- Common test data
+"""
+
+import asyncio
+import os
+from typing import Any, AsyncGenerator
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+import pytest_asyncio
+
+
+# ============================================================================
+# ASYNCIO CONFIGURATION
+# ============================================================================
+
+
+def pytest_configure(config: Any) -> None:
+    """Configure pytest with asyncio support."""
+    config.addinivalue_line(
+        "markers", "asyncio: mark test as async (deselect with '-m \"not asyncio\"')"
+    )
+
+
+@pytest.fixture(scope="session")
+def event_loop() -> Any:
+    """Create event loop for async tests."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
+
+# ============================================================================
+# DATABASE FIXTURES
+# ============================================================================
+
+
+@pytest_asyncio.fixture
+async def mock_db_manager() -> AsyncMock:
+    """
+    Create mock database manager for unit tests.
+    
+    Returns:
+        AsyncMock: Mock DatabaseManager instance
+    """
+    manager = AsyncMock()
+    
+    # Mock transaction context manager
+    async def mock_transaction():
+        conn = AsyncMock()
+        conn.execute = AsyncMock(return_value=None)
+        conn.fetchrow = AsyncMock(return_value=None)
+        conn.fetch = AsyncMock(return_value=[])
+        return conn
+    
+    manager.transaction = AsyncMock(return_value=mock_transaction())
+    manager.acquire = AsyncMock()
+    manager.initialize = AsyncMock()
+    manager.close = AsyncMock()
+    
+    return manager
+
+
+@pytest_asyncio.fixture
+async def test_db_manager() -> AsyncGenerator[Any, None]:
+    """
+    Create real database manager for integration tests.
+    
+    Sets up test database and cleans up after tests.
+    
+    Yields:
+        DatabaseManager: Real database manager connected to test database
+    """
+    from src.database.connection import DatabaseManager
+    
+    # Use test database
+    os.environ["DATABASE_URL"] = "postgresql://postgres:postgres@localhost:15432/uaip_scoping_test"
+    
+    manager = DatabaseManager()
+    
+    try:
+        await manager.initialize()
+        yield manager
+    finally:
+        await manager.close()
+
+
+# ============================================================================
+# COMMON TEST DATA FIXTURES
+# ============================================================================
+
+
+@pytest.fixture
+def sample_session_data() -> dict[str, Any]:
+    """Create sample session data for testing."""
+    from uuid import uuid4
+    from datetime import datetime
+    
+    return {
+        "session_id": uuid4(),
+        "user_id": "test_user_123",
+        "project_name": "Customer Churn Prediction",
+        "started_at": datetime.utcnow(),
+        "last_updated_at": datetime.utcnow(),
+        "current_stage": 1,
+        "stage_data": {},
+        "conversation_history": [],
+        "status": "IN_PROGRESS",
+        "checkpoints": [],
+    }
+
+
+@pytest.fixture
+def sample_problem_statement() -> dict[str, Any]:
+    """Create sample problem statement for testing."""
+    return {
+        "business_problem": "We need to predict customer churn",
+        "business_context": "E-commerce platform with 100k customers",
+        "success_criteria": "Reduce churn by 15%",
+        "constraints": "Must work with existing data pipeline",
+    }
+
+
+@pytest.fixture
+def sample_stage_data() -> dict[str, Any]:
+    """Create sample stage data for testing."""
+    return {
+        "stage_1": {
+            "business_problem": "Predict customer churn",
+            "business_context": "E-commerce platform",
+        },
+        "stage_2": {
+            "success_criteria": "Reduce churn by 15%",
+            "metrics": ["Precision", "Recall"],
+        },
+        "stage_3": {
+            "data_sources": ["Customer database", "Transaction logs"],
+            "data_quality": "Good",
+        },
+        "stage_4": {
+            "user_impact": "Positive",
+            "stakeholders": ["Product team", "Customer success"],
+        },
+        "stage_5": {
+            "ethical_risks": "Bias in predictions",
+            "governance": "Proceed",
+        },
+    }
+
+
+# ============================================================================
+# ENVIRONMENT FIXTURES
+# ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def setup_test_env() -> None:
+    """Set up test environment variables."""
+    os.environ["ENVIRONMENT"] = "test"
+    os.environ["LOG_LEVEL"] = "DEBUG"
+    os.environ["DATABASE_URL"] = "postgresql://postgres:postgres@localhost:15432/uaip_scoping_test"
+
+
+# ============================================================================
+# CLEANUP FIXTURES
+# ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def cleanup_after_test() -> None:
+    """Clean up after each test."""
+    yield
+    # Add cleanup code here if needed
+
+
+

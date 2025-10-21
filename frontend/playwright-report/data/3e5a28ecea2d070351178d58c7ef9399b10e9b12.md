@@ -1,0 +1,67 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - heading "U-AIP Scoping Assistant" [level=1] [ref=e6]
+      - paragraph [ref=e7]: Universal AI Project Scoping and Framing Protocol
+  - paragraph [ref=e10]: Network Error
+  - main [ref=e11]:
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - img [ref=e15]
+        - heading "Start New Project" [level=2] [ref=e17]
+        - paragraph [ref=e18]: Begin a new AI project evaluation. Answer questions across 5 stages to assess feasibility and generate a comprehensive project charter.
+        - button "Start New Questionnaire" [ref=e19]
+      - generic [ref=e20]:
+        - img [ref=e22]
+        - heading "Resume Session" [level=2] [ref=e24]
+        - paragraph [ref=e25]: Continue working on an existing project evaluation. Your progress is automatically saved.
+        - button "View Sessions" [ref=e26]
+    - generic [ref=e27]:
+      - heading "5-Stage Evaluation Process" [level=3] [ref=e28]
+      - generic [ref=e29]:
+        - generic [ref=e30]:
+          - generic [ref=e31]: "1"
+          - heading "Business Translation" [level=4] [ref=e32]
+          - paragraph [ref=e33]: Define the problem
+        - generic [ref=e34]:
+          - generic [ref=e35]: "2"
+          - heading "Value Quantification" [level=4] [ref=e36]
+          - paragraph [ref=e37]: Measure impact
+        - generic [ref=e38]:
+          - generic [ref=e39]: "3"
+          - heading "Data Feasibility" [level=4] [ref=e40]
+          - paragraph [ref=e41]: Assess data
+        - generic [ref=e42]:
+          - generic [ref=e43]: "4"
+          - heading "User Centricity" [level=4] [ref=e44]
+          - paragraph [ref=e45]: Consider users
+        - generic [ref=e46]:
+          - generic [ref=e47]: "5"
+          - heading "Ethical Governance" [level=4] [ref=e48]
+          - paragraph [ref=e49]: Ensure ethics
+  - generic [ref=e52]:
+    - heading "Create New Session" [level=2] [ref=e53]
+    - paragraph [ref=e55]: Network Error
+    - generic [ref=e56]:
+      - generic [ref=e57]:
+        - generic [ref=e58]: User ID
+        - textbox "User ID" [ref=e59]:
+          - /placeholder: Enter your user ID
+          - text: test-user-1761066033925
+      - generic [ref=e60]:
+        - generic [ref=e61]: Project Name
+        - textbox "Project Name" [ref=e62]:
+          - /placeholder: Enter project name
+          - text: AI-Powered Customer Analytics Platform
+      - generic [ref=e63]:
+        - generic [ref=e64]: Description (Optional)
+        - textbox "Description (Optional)" [ref=e65]:
+          - /placeholder: Enter project description
+          - text: Build an AI system to analyze customer behavior and provide real-time insights
+      - generic [ref=e66]:
+        - button "Start Session" [ref=e67]
+        - button "Cancel" [ref=e68]
+```

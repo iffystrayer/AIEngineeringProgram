@@ -22,13 +22,54 @@ class TestStage4ConversationIntegration:
     @pytest.fixture
     def mock_stage1_data(self):
         """Create mock Stage 1 ProblemStatement."""
+        from src.models.schemas import Feature, OutputDefinition, ScopeDefinition, FeatureAccessibilityReport
+
         return ProblemStatement(
             business_objective="Improve customer support ticket routing",
+            ai_necessity_justification="ML model can route tickets more accurately than manual rules",
             ml_archetype=MLArchetype.CLASSIFICATION,
-            target_output="Ticket category and priority",
-            input_features=["ticket_text", "customer_tier", "response_history"],
-            success_criteria="90% routing accuracy",
-            constraints=["<5 second response time"]
+            ml_archetype_justification="Classification task to predict ticket category and priority",
+            target_output=OutputDefinition(
+                name="Ticket Routing",
+                type="categorical",
+                description="Ticket category and priority",
+                possible_values=["urgent", "high", "medium", "low"]
+            ),
+            input_features=[
+                Feature(
+                    name="ticket_text",
+                    data_type="text",
+                    description="Ticket description",
+                    source_system="support_system",
+                    availability_in_production=True
+                ),
+                Feature(
+                    name="customer_tier",
+                    data_type="categorical",
+                    description="Customer tier level",
+                    source_system="crm",
+                    availability_in_production=True
+                ),
+                Feature(
+                    name="response_history",
+                    data_type="numeric",
+                    description="Previous response times",
+                    source_system="support_system",
+                    availability_in_production=True
+                )
+            ],
+            scope_boundaries=ScopeDefinition(
+                in_scope=["Ticket routing and prioritization"],
+                out_of_scope=["Ticket resolution"],
+                assumptions=["Historical routing data is representative"],
+                constraints=["<5 second response time"]
+            ),
+            feature_availability=FeatureAccessibilityReport(
+                all_features_available=True,
+                unavailable_features=[],
+                latency_concerns=[],
+                access_method_issues=[]
+            )
         )
 
     @pytest.fixture

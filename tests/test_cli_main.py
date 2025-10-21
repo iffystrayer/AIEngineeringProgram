@@ -281,8 +281,7 @@ class TestStartCommand:
         assert "project" in result.output.lower() or "name" in result.output.lower()
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-    @pytest.mark.asyncio
-    async def test_start_command_creates_session(self, cli_runner, mock_db_manager):
+        def test_start_command_creates_session(self, cli_runner, mock_db_manager):
         """Start command should create new session in database."""
         # This test will require mocking database operations
         pytest.skip("Requires database mocking setup")
@@ -318,8 +317,7 @@ class TestResumeCommand:
         assert result.exit_code != 0
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-    @pytest.mark.asyncio
-    async def test_resume_command_loads_session(self, cli_runner, mock_db_manager):
+        def test_resume_command_loads_session(self, cli_runner, mock_db_manager):
         """Resume command should load session from database."""
         pytest.skip("Requires database mocking setup")
 
@@ -339,8 +337,7 @@ class TestListCommand:
         assert result.exit_code == 0
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-    @pytest.mark.asyncio
-    async def test_list_command_shows_sessions(self, cli_runner, mock_db_manager):
+        def test_list_command_shows_sessions(self, cli_runner, mock_db_manager):
         """List command should display user sessions."""
         pytest.skip("Requires database mocking setup")
 
@@ -386,14 +383,12 @@ class TestCLIIntegration:
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
     @pytest.mark.integration
-    @pytest.mark.asyncio
-    async def test_cli_initializes_database_manager(self, cli_runner):
+        def test_cli_initializes_database_manager(self, cli_runner):
         """CLI should initialize DatabaseManager on startup."""
         pytest.skip("Requires full integration setup")
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
     @pytest.mark.integration
-    @pytest.mark.asyncio
-    async def test_cli_complete_session_workflow(self, cli_runner):
+        def test_cli_complete_session_workflow(self, cli_runner):
         """Test complete workflow: start → conversation → completion."""
         pytest.skip("Requires full integration setup")

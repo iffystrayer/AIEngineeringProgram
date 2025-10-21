@@ -21,9 +21,9 @@ from src.database.repositories.stage_data_repository import StageDataRepository
 
 
 @pytest.fixture
-def stage_data_repository() -> StageDataRepository:
-    """Create StageDataRepository instance."""
-    return StageDataRepository()
+async def stage_data_repository(mock_db_manager) -> StageDataRepository:
+    """Create StageDataRepository instance with mock database manager."""
+    return StageDataRepository(mock_db_manager)
 
 
 @pytest.fixture

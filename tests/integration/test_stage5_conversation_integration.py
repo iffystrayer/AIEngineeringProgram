@@ -22,13 +22,60 @@ class TestStage5ConversationIntegration:
     @pytest.fixture
     def mock_stage1_data(self):
         """Create mock Stage 1 ProblemStatement."""
+        from src.models.schemas import Feature, OutputDefinition, ScopeDefinition, FeatureAccessibilityReport
+
         return ProblemStatement(
             business_objective="Predict loan approval decisions",
+            ai_necessity_justification="ML model can assess loan risk more accurately than manual review",
             ml_archetype=MLArchetype.CLASSIFICATION,
-            target_output="Loan approval probability",
-            input_features=["credit_score", "income", "employment_history", "loan_amount"],
-            success_criteria="85% accuracy with <10% disparate impact",
-            constraints=["Fair lending compliance", "<3 second response time"]
+            ml_archetype_justification="Classification task to predict loan approval probability",
+            target_output=OutputDefinition(
+                name="Loan Approval",
+                type="probability",
+                description="Loan approval probability"
+            ),
+            input_features=[
+                Feature(
+                    name="credit_score",
+                    data_type="numeric",
+                    description="Credit score",
+                    source_system="credit_bureau",
+                    availability_in_production=True
+                ),
+                Feature(
+                    name="income",
+                    data_type="numeric",
+                    description="Annual income",
+                    source_system="tax_records",
+                    availability_in_production=True
+                ),
+                Feature(
+                    name="employment_history",
+                    data_type="categorical",
+                    description="Employment history",
+                    source_system="employment_records",
+                    availability_in_production=True
+                ),
+                Feature(
+                    name="loan_amount",
+                    data_type="numeric",
+                    description="Requested loan amount",
+                    source_system="application",
+                    availability_in_production=True
+                )
+            ],
+            scope_boundaries=ScopeDefinition(
+                in_scope=["Loan approval prediction"],
+                out_of_scope=["Loan pricing"],
+                assumptions=["Historical data is representative"],
+                constraints=["Fair lending compliance", "<3 second response time"]
+            ),
+            feature_availability=FeatureAccessibilityReport(
+                all_features_available=True,
+                unavailable_features=[],
+                latency_concerns=[],
+                access_method_issues=[]
+            )
         )
 
     @pytest.fixture
