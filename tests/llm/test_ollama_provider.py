@@ -202,7 +202,7 @@ class TestOllamaProviderExecution:
         """complete() returns valid LLMResponse."""
         with patch('httpx.AsyncClient.post') as mock_post:
             # Mock Ollama API response
-            mock_response = AsyncMock()
+            mock_response = Mock()
             mock_response.json.return_value = {
                 "model": "llama3",
                 "created_at": "2025-10-17T12:00:00Z",
@@ -213,7 +213,13 @@ class TestOllamaProviderExecution:
                 "eval_count": 8
             }
             mock_response.status_code = 200
-            mock_post.return_value = mock_response
+            mock_response.raise_for_status = Mock()
+
+            # Make post return an awaitable
+            async def mock_post_coro(*args, **kwargs):
+                return mock_response
+
+            mock_post.side_effect = mock_post_coro
 
             response = await ollama_provider.complete(sample_request)
 
@@ -242,7 +248,7 @@ class TestOllamaProviderExecution:
         models_to_test = ["llama3", "mistral", "phi3"]
 
         with patch('httpx.AsyncClient.post') as mock_post:
-            mock_response = AsyncMock()
+            mock_response = Mock()
             mock_response.json.return_value = {
                 "model": "test-model",
                 "response": "Test response",
@@ -252,7 +258,13 @@ class TestOllamaProviderExecution:
                 "eval_count": 5
             }
             mock_response.status_code = 200
-            mock_post.return_value = mock_response
+            mock_response.raise_for_status = Mock()
+
+            # Make post return an awaitable
+            async def mock_post_coro(*args, **kwargs):
+                return mock_response
+
+            mock_post.side_effect = mock_post_coro
 
             for model in models_to_test:
                 request = LLMRequest(
