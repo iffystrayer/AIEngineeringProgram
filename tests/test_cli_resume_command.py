@@ -296,7 +296,7 @@ class TestResumeCommandErrorHandling:
                     )
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-        def test_resume_handles_database_connection_failure(
+    def test_resume_handles_database_connection_failure(
         self, cli_runner, test_session_id, mock_db_manager
     ):
         """Resume command should handle database connection failures gracefully."""
@@ -312,7 +312,7 @@ class TestResumeCommandErrorHandling:
                 assert "Error" in result.output or "error" in result.output.lower()
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-        def test_resume_handles_completed_session(
+    def test_resume_handles_completed_session(
         self, cli_runner, test_session_id, mock_session, mock_session_repo, mock_db_manager
     ):
         """Resume command should handle completed sessions appropriately."""
@@ -336,7 +336,7 @@ class TestResumeCommandErrorHandling:
                 )
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-        def test_resume_handles_abandoned_session(
+    def test_resume_handles_abandoned_session(
         self, cli_runner, test_session_id, mock_session, mock_session_repo, mock_db_manager
     ):
         """Resume command should handle abandoned sessions."""
@@ -367,7 +367,7 @@ class TestResumeCommandOutput:
     """Tests for resume command output formatting."""
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-        def test_resume_displays_progress_indicator(
+    def test_resume_displays_progress_indicator(
         self, cli_runner, test_session_id, mock_session, mock_session_repo, mock_db_manager
     ):
         """Resume command should display progress indicator."""
@@ -388,7 +388,7 @@ class TestResumeCommandOutput:
                 )
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-        def test_resume_displays_session_summary_panel(
+    def test_resume_displays_session_summary_panel(
         self, cli_runner, test_session_id, mock_session, mock_session_repo, mock_db_manager
     ):
         """Resume command should display Rich formatted session summary."""
@@ -414,7 +414,7 @@ class TestResumeCommandIntegration:
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
     @pytest.mark.integration
-        def test_resume_command_loads_real_session(self, cli_runner):
+    def test_resume_command_loads_real_session(self, cli_runner):
         """
         Integration test: Resume command loads real database session.
 

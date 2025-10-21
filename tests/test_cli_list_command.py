@@ -235,7 +235,7 @@ class TestListCommandImplementation:
     """Tests for list command implementation with database."""
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-        def test_list_command_queries_sessions_from_database(
+    def test_list_command_queries_sessions_from_database(
         self, cli_runner, mock_sessions, mock_session_repo, mock_db_manager
     ):
         """List command should query sessions from database."""
@@ -252,7 +252,7 @@ class TestListCommandImplementation:
                 assert result.exit_code == 0
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-        def test_list_command_displays_table_format(
+    def test_list_command_displays_table_format(
         self, cli_runner, mock_sessions, mock_session_repo, mock_db_manager
     ):
         """List command should display sessions in table format by default."""
@@ -271,7 +271,7 @@ class TestListCommandImplementation:
                 )
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-        def test_list_command_supports_json_format(
+    def test_list_command_supports_json_format(
         self, cli_runner, mock_sessions, mock_session_repo, mock_db_manager
     ):
         """List command should support JSON output format."""
@@ -288,7 +288,7 @@ class TestListCommandImplementation:
                     assert "[" in result.output or "{" in result.output
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-        def test_list_command_filters_by_status(
+    def test_list_command_filters_by_status(
         self, cli_runner, mock_sessions, mock_session_repo, mock_db_manager
     ):
         """List command should filter by status."""
@@ -305,7 +305,7 @@ class TestListCommandImplementation:
                 assert result.exit_code == 0
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-        def test_list_command_respects_limit(
+    def test_list_command_respects_limit(
         self, cli_runner, mock_sessions, mock_session_repo, mock_db_manager
     ):
         """List command should respect limit parameter."""
@@ -320,7 +320,7 @@ class TestListCommandImplementation:
                 assert result.exit_code == 0
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-        def test_list_command_uses_default_user_id(self, cli_runner, mock_session_repo, mock_db_manager):
+    def test_list_command_uses_default_user_id(self, cli_runner, mock_session_repo, mock_db_manager):
         """List command should use $USER as default user_id."""
         import os
 
@@ -346,7 +346,7 @@ class TestListCommandErrorHandling:
     """Tests for list command error handling."""
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-        def test_list_handles_empty_results(
+    def test_list_handles_empty_results(
         self, cli_runner, mock_session_repo, mock_db_manager
     ):
         """List command should handle empty results gracefully."""
@@ -362,7 +362,7 @@ class TestListCommandErrorHandling:
                 assert "no sessions" in output or "0 session" in output or result.exit_code == 0
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-        def test_list_handles_database_connection_failure(
+    def test_list_handles_database_connection_failure(
         self, cli_runner, mock_db_manager
     ):
         """List command should handle database connection failures gracefully."""
@@ -385,7 +385,7 @@ class TestListCommandOutput:
     """Tests for list command output formatting."""
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-        def test_list_displays_session_count(
+    def test_list_displays_session_count(
         self, cli_runner, mock_sessions, mock_session_repo, mock_db_manager
     ):
         """List command should display total session count."""
@@ -405,7 +405,7 @@ class TestListCommandOutput:
                 )
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
-        def test_list_displays_rich_table(
+    def test_list_displays_rich_table(
         self, cli_runner, mock_sessions, mock_session_repo, mock_db_manager
     ):
         """List command should display Rich formatted table."""
@@ -429,7 +429,7 @@ class TestListCommandIntegration:
 
     @pytest.mark.skipif(not CLI_AVAILABLE, reason="CLI not implemented yet")
     @pytest.mark.integration
-        def test_list_command_queries_real_database(self, cli_runner):
+    def test_list_command_queries_real_database(self, cli_runner):
         """
         Integration test: List command queries real database.
 
