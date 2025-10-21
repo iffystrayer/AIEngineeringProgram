@@ -239,10 +239,10 @@ class TestListCommandImplementation:
         self, cli_runner, mock_sessions, mock_session_repo, mock_db_manager
     ):
         """List command should query sessions from database."""
-        mock_session_repo.get_by_user_id.return_value = mock_sessions
+        mock_session_repo.get_by_user_id = AsyncMock(return_value=mock_sessions)
 
-        with patch("src.cli.main.DatabaseManager", return_value=mock_db_manager):
-            with patch("src.cli.main.SessionRepository", return_value=mock_session_repo):
+        with patch("src.database.connection.DatabaseManager", return_value=mock_db_manager):
+            with patch("src.database.repositories.session_repository.SessionRepository", return_value=mock_session_repo):
                 result = cli_runner.invoke(
                     cli, ["list", "--user-id", "test_user"], catch_exceptions=False
                 )
@@ -256,10 +256,10 @@ class TestListCommandImplementation:
         self, cli_runner, mock_sessions, mock_session_repo, mock_db_manager
     ):
         """List command should display sessions in table format by default."""
-        mock_session_repo.get_by_user_id.return_value = mock_sessions
+        mock_session_repo.get_by_user_id = AsyncMock(return_value=mock_sessions)
 
-        with patch("src.cli.main.DatabaseManager", return_value=mock_db_manager):
-            with patch("src.cli.main.SessionRepository", return_value=mock_session_repo):
+        with patch("src.database.connection.DatabaseManager", return_value=mock_db_manager):
+            with patch("src.database.repositories.session_repository.SessionRepository", return_value=mock_session_repo):
                 result = cli_runner.invoke(cli, ["list"], catch_exceptions=False)
 
                 # Should show project names
@@ -275,10 +275,10 @@ class TestListCommandImplementation:
         self, cli_runner, mock_sessions, mock_session_repo, mock_db_manager
     ):
         """List command should support JSON output format."""
-        mock_session_repo.get_by_user_id.return_value = mock_sessions
+        mock_session_repo.get_by_user_id = AsyncMock(return_value=mock_sessions)
 
-        with patch("src.cli.main.DatabaseManager", return_value=mock_db_manager):
-            with patch("src.cli.main.SessionRepository", return_value=mock_session_repo):
+        with patch("src.database.connection.DatabaseManager", return_value=mock_db_manager):
+            with patch("src.database.repositories.session_repository.SessionRepository", return_value=mock_session_repo):
                 result = cli_runner.invoke(
                     cli, ["list", "--format", "json"], catch_exceptions=False
                 )
@@ -294,10 +294,10 @@ class TestListCommandImplementation:
         """List command should filter by status."""
         # Return only in_progress sessions
         in_progress_sessions = [s for s in mock_sessions if s.status == SessionStatus.IN_PROGRESS]
-        mock_session_repo.get_by_user_id.return_value = in_progress_sessions
+        mock_session_repo.get_by_user_id = AsyncMock(return_value=in_progress_sessions)
 
-        with patch("src.cli.main.DatabaseManager", return_value=mock_db_manager):
-            with patch("src.cli.main.SessionRepository", return_value=mock_session_repo):
+        with patch("src.database.connection.DatabaseManager", return_value=mock_db_manager):
+            with patch("src.database.repositories.session_repository.SessionRepository", return_value=mock_session_repo):
                 result = cli_runner.invoke(
                     cli, ["list", "--status", "in_progress"], catch_exceptions=False
                 )
@@ -309,10 +309,10 @@ class TestListCommandImplementation:
         self, cli_runner, mock_sessions, mock_session_repo, mock_db_manager
     ):
         """List command should respect limit parameter."""
-        mock_session_repo.get_by_user_id.return_value = mock_sessions
+        mock_session_repo.get_by_user_id = AsyncMock(return_value=mock_sessions)
 
-        with patch("src.cli.main.DatabaseManager", return_value=mock_db_manager):
-            with patch("src.cli.main.SessionRepository", return_value=mock_session_repo):
+        with patch("src.database.connection.DatabaseManager", return_value=mock_db_manager):
+            with patch("src.database.repositories.session_repository.SessionRepository", return_value=mock_session_repo):
                 result = cli_runner.invoke(
                     cli, ["list", "--limit", "2"], catch_exceptions=False
                 )
@@ -324,11 +324,11 @@ class TestListCommandImplementation:
         """List command should use $USER as default user_id."""
         import os
 
-        mock_session_repo.get_by_user_id.return_value = []
+        mock_session_repo.get_by_user_id = AsyncMock(return_value=[])
         expected_user = os.getenv("USER", "default_user")
 
-        with patch("src.cli.main.DatabaseManager", return_value=mock_db_manager):
-            with patch("src.cli.main.SessionRepository", return_value=mock_session_repo):
+        with patch("src.database.connection.DatabaseManager", return_value=mock_db_manager):
+            with patch("src.database.repositories.session_repository.SessionRepository", return_value=mock_session_repo):
                 result = cli_runner.invoke(cli, ["list"], catch_exceptions=False)
 
                 # Should call with default user
@@ -350,10 +350,10 @@ class TestListCommandErrorHandling:
         self, cli_runner, mock_session_repo, mock_db_manager
     ):
         """List command should handle empty results gracefully."""
-        mock_session_repo.get_by_user_id.return_value = []
+        mock_session_repo.get_by_user_id = AsyncMock(return_value=[])
 
-        with patch("src.cli.main.DatabaseManager", return_value=mock_db_manager):
-            with patch("src.cli.main.SessionRepository", return_value=mock_session_repo):
+        with patch("src.database.connection.DatabaseManager", return_value=mock_db_manager):
+            with patch("src.database.repositories.session_repository.SessionRepository", return_value=mock_session_repo):
                 result = cli_runner.invoke(cli, ["list"], catch_exceptions=False)
 
                 # Should show empty state message
