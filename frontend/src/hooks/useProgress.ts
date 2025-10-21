@@ -3,16 +3,18 @@
  * Manages progress tracking and real-time updates
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react'
+import type {
+  ProgressResponse,
+  ProgressEvent,
+  SubmitAnswerRequest,
+} from '../services/api'
 import {
   getProgress,
   getEvents,
   submitAnswer,
   subscribeToStream,
-  ProgressResponse,
-  ProgressEvent,
-  SubmitAnswerRequest,
-} from '../services/api';
+} from '../services/api'
 
 export interface UseProgressState {
   progress: ProgressResponse | null;

@@ -3,15 +3,14 @@
  * Manages session state and operations
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react'
+import type { SessionResponse } from '../services/api'
 import {
   createSession,
   getSession,
   listSessions,
   deleteSession,
-  SessionResponse,
-  ApiError,
-} from '../services/api';
+} from '../services/api'
 
 export interface UseSessionState {
   session: SessionResponse | null;

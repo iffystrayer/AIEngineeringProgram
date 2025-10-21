@@ -3,7 +3,8 @@
  * Handles all communication with the backend API
  */
 
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import axios from 'axios'
+import type { AxiosError } from 'axios'
 
 // ============================================================================
 // Configuration
@@ -16,13 +17,13 @@ const API_TIMEOUT = 30000; // 30 seconds
 // Axios Instance
 // ============================================================================
 
-export const apiClient: AxiosInstance = axios.create({
+export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: API_TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
   },
-});
+})
 
 // ============================================================================
 // Type Definitions
@@ -228,13 +229,14 @@ interface ApiErrorResponse {
 }
 
 export class ApiError extends Error {
-  constructor(
-    public status: number,
-    public message: string,
-    public data?: unknown
-  ) {
-    super(message);
-    this.name = 'ApiError';
+  status: number
+  data?: unknown
+
+  constructor(status: number, message: string, data?: unknown) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.data = data
   }
 }
 

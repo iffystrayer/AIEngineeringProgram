@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import { SessionResponse, ProgressResponse, ProgressEvent } from '../services/api'
+import type { SessionResponse, ProgressResponse, ProgressEvent } from '../services/api'
 
 /**
  * Mock Server Setup for Testing

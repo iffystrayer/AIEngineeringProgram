@@ -1,5 +1,5 @@
 import React from 'react'
-import { SessionResponse } from '../services/api'
+import type { SessionResponse } from '../services/api'
 
 interface SessionModalProps {
   isOpen: boolean

@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
+import type { CreateSessionRequest, SessionResponse } from '../services/api'
 import { useSession } from '../hooks/useSession'
 import { useProgress } from '../hooks/useProgress'
-import { CreateSessionRequest, SessionResponse } from '../services/api'
 import ProgressDisplay from './ProgressDisplay'
 import ErrorBoundary from './ErrorBoundary'
 import SessionModal from './SessionModal'

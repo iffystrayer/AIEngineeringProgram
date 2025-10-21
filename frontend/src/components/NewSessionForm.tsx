@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { CreateSessionRequest } from '../services/api'
+import type { CreateSessionRequest } from '../services/api'
 
 interface NewSessionFormProps {
   onSubmit: (data: CreateSessionRequest) => void
