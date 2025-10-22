@@ -1,0 +1,611 @@
+
+Starting E2E test with live connections...
+
+╭──────────────────────────────────────────────────────────╮
+│ 🧪 E2E CLI Test - Live Connections                       │
+│ Testing complete flow: Initialization → Charter Creation │
+│ ⚠️  Using LIVE database and LLM connections               │
+╰──────────────────────────────────────────────────────────╯
+
+Test Configuration:
+  • Project: E2E CLI Test - 20251022-001601
+  • User ID: cli-test-1761106561.801236
+  • Database: Live PostgreSQL (port 15432)
+  • LLM: Live (Anthropic/Ollama)
+  • Input: Automated (MockInputHandler)
+
+Step 1: Initialize Database Connection
+✓ Database connected
+
+Step 2: Create New Session
+✓ Session created: 02efc8d9-8d05-407a-bfa7-e9f06ba9ddab
+
+Step 3: Initialize Orchestrator (Live LLM)
+✓ Orchestrator initialized with live LLM router
+
+Step 4: Execute 5-Stage Questionnaire
+
+============================================================
+Stage 1: Business Translation
+============================================================
+
+Session: E2E CLI Test - 20251022-001601
+╭─────────────────── Stage 1 ────────────────────╮
+│ What business problem are you trying to solve? │
+╰────────────────────────────────────────────────╯
+
+Your response: ✓ Response accepted (quality: 9/10)
+
+
+Session: E2E CLI Test - 20251022-001601
+╭───────────────────── Stage 1 ──────────────────────╮
+│ Why is this problem important to the organization? │
+╰────────────────────────────────────────────────────╯
+
+Your response: 
+⚠️  Quality validation feedback:
+Score: 4/10
+╭───────────────────────────────────────────────────────────────────────────────────────────────────── Follow-up ──────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Here's a specific follow-up question that addresses the issues:                                                                                                                                                      │
+│                                                                                                                                                                                                                      │
+│ "Can you elaborate on how increasing customer retention rates will specifically impact our organization's revenue growth? What are some potential metrics or targets that we should be aiming for in terms of        │
+│ customer retention, and how do you see this strategy aligning with our overall business objectives?"                                                                                                                 │
+│                                                                                                                                                                                                                      │
+│ This follow-up question addresses the following issues:                                                                                                                                                              │
+│                                                                                                                                                                                                                      │
+│ 1. Lack of specificity: The original response mentions "revenue" but doesn't provide any context about what specific revenue streams are involved or how increased customer retention will impact them.              │
+│ 2. Ambiguity: The phrase "help us grow revenue" is vague and doesn't provide a clear understanding of the relationship between customer retention and revenue growth.                                                │
+│                                                                                                                                                                                                                      │
+│ By asking for more specificity and detail                                                                                                                                                                            │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Improved response: ✓ Response accepted (quality: 9/10)
+
+
+Session: E2E CLI Test - 20251022-001601
+╭─────────────────────── Stage 1 ────────────────────────╮
+│ What would success look like? How will you measure it? │
+╰────────────────────────────────────────────────────────╯
+
+Your response: Failed to parse JSON from LLM response: Invalid \escape: line 17 column 13 (char 833)
+LLM response missing quality_score, using default
+
+⚠️  Quality validation feedback:
+Score: 0/10
+Issues identified:
+  • Response evaluation failed - please rephrase your answer
+╭─────────── Follow-up ───────────╮
+│ Could you provide more details? │
+╰─────────────────────────────────╯
+
+Improved response: ✓ Response accepted (quality: 9/10)
+
+
+Session: E2E CLI Test - 20251022-001601
+╭─────────────────────────────── Stage 1 ───────────────────────────────╮
+│ Have you considered non-AI solutions to this problem? What were they? │
+╰───────────────────────────────────────────────────────────────────────╯
+
+Your response: 
+⚠️  Quality validation feedback:
+Score: 6/10
+╭───────────────────────────────────────────────────────────────────────────────────────────────────── Follow-up ──────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Here's a potential follow-up question:                                                                                                                                                                               │
+│                                                                                                                                                                                                                      │
+│ "That makes sense. Can you walk me through how the rule-based alert system in your CRM actually flags customers with low engagement scores? Are there any subjective factors or biases built into this process,      │
+│ which might lead to incorrect flagging or false positives?"                                                                                                                                                          │
+│                                                                                                                                                                                                                      │
+│ This follow-up question is designed to get more information about the specific details of their current solution and help identify potential issues or areas for improvement.                                        │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Improved response: 
+⚠️  Quality validation feedback:
+Score: 6/10
+╭───────────────────────────────────────────────────────────────────────────────────────────────────── Follow-up ──────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Follow-up question:                                                                                                                                                                                                  │
+│                                                                                                                                                                                                                      │
+│ "I understand that you're using a points-based logic to calculate engagement scores. Can you elaborate on what types of non-AI solutions you've considered, such as rule-based systems or human-in-the-loop          │
+│ processes? Are there any specific limitations or challenges with these alternatives that led you to adopt AI-powered Engagement Scores?"                                                                             │
+│                                                                                                                                                                                                                      │
+│ This follow-up question aims to:                                                                                                                                                                                     │
+│                                                                                                                                                                                                                      │
+│ 1. Clarify the user's current solution and its potential limitations.                                                                                                                                                │
+│ 2. Encourage the user to think critically about alternative approaches.                                                                                                                                              │
+│ 3. Help identify potential challenges or pain points with non-AI solutions, which might have contributed to their adoption of AI-powered Engagement Scores.                                                          │
+│                                                                                                                                                                                                                      │
+│ By asking this question, you're helping the user reflect on their decision-making process and consider whether there are other                                                                                       │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Improved response: ConversationEngine input validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+User response validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+
+⚠️  Please provide an answer - empty responses are not accepted.
+Press Enter after typing your response.
+
+
+⚠️  Quality validation feedback:
+Score: 6/10
+╭───────────────────────────────────────────────────────────────────────────────────────────────────── Follow-up ──────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Follow-up question:                                                                                                                                                                                                  │
+│                                                                                                                                                                                                                      │
+│ "I understand that you're using a points-based logic to calculate engagement scores. Can you elaborate on what types of non-AI solutions you've considered, such as rule-based systems or human-in-the-loop          │
+│ processes? Are there any specific limitations or challenges with these alternatives that led you to adopt AI-powered Engagement Scores?"                                                                             │
+│                                                                                                                                                                                                                      │
+│ This follow-up question aims to:                                                                                                                                                                                     │
+│                                                                                                                                                                                                                      │
+│ 1. Clarify the user's current solution and its potential limitations.                                                                                                                                                │
+│ 2. Encourage the user to think critically about alternative approaches.                                                                                                                                              │
+│ 3. Help identify potential challenges or pain points with non-AI solutions, which might have contributed to their adoption of AI-powered Engagement Scores.                                                          │
+│                                                                                                                                                                                                                      │
+│ By asking this question, you're helping the user reflect on their decision-making process and consider whether there are other                                                                                       │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Improved response: Max attempts (3) reached. Escalating.
+✓ Response accepted (quality: 6/10)
+
+
+Session: E2E CLI Test - 20251022-001601
+╭──────────────────── Stage 1 ─────────────────────╮
+│ Why is AI/ML necessary for solving this problem? │
+╰──────────────────────────────────────────────────╯
+
+Your response: ConversationEngine input validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+User response validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+
+⚠️  Please provide an answer - empty responses are not accepted.
+Press Enter after typing your response.
+
+
+Session: E2E CLI Test - 20251022-001601
+╭──────────────────── Stage 1 ─────────────────────╮
+│ Why is AI/ML necessary for solving this problem? │
+╰──────────────────────────────────────────────────╯
+
+Your response: ✓ Response accepted (quality: 8/10)
+
+
+Session: E2E CLI Test - 20251022-001601
+╭─────────────────────── Stage 1 ────────────────────────╮
+│ What makes this problem suitable for machine learning? │
+╰────────────────────────────────────────────────────────╯
+
+Your response: ConversationEngine input validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+User response validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+
+⚠️  Please provide an answer - empty responses are not accepted.
+Press Enter after typing your response.
+
+
+Session: E2E CLI Test - 20251022-001601
+╭─────────────────────── Stage 1 ────────────────────────╮
+│ What makes this problem suitable for machine learning? │
+╰────────────────────────────────────────────────────────╯
+
+Your response: ✓ Response accepted (quality: 8/10)
+
+
+Session: E2E CLI Test - 20251022-001601
+╭──────────────────────────── Stage 1 ─────────────────────────────╮
+│ What input data/features will the model use to make predictions? │
+╰──────────────────────────────────────────────────────────────────╯
+
+Your response: ConversationEngine input validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+User response validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+
+⚠️  Please provide an answer - empty responses are not accepted.
+Press Enter after typing your response.
+
+
+Session: E2E CLI Test - 20251022-001601
+╭──────────────────────────── Stage 1 ─────────────────────────────╮
+│ What input data/features will the model use to make predictions? │
+╰──────────────────────────────────────────────────────────────────╯
+
+Your response: 
+⚠️  Quality validation feedback:
+Score: 2/10
+Issues identified:
+  • The response does not directly answer the question about input data/features.
+  • It mentions an unrelated support ticket and its point value.
+  • This type of information is not relevant to the AI project's functionality.
+╭──────────────────────────────────────────── Follow-up ─────────────────────────────────────────────╮
+│ Can you provide a clear description of the input data features the model will use for predictions? │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Improved response: ConversationEngine input validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+User response validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+
+⚠️  Please provide an answer - empty responses are not accepted.
+Press Enter after typing your response.
+
+
+⚠️  Quality validation feedback:
+Score: 2/10
+Issues identified:
+  • The response does not directly answer the question about input data/features.
+  • It mentions an unrelated support ticket and its point value.
+  • This type of information is not relevant to the AI project's functionality.
+╭──────────────────────────────────────────── Follow-up ─────────────────────────────────────────────╮
+│ Can you provide a clear description of the input data features the model will use for predictions? │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Improved response: 
+⚠️  Quality validation feedback:
+Score: 0/10
+Issues identified:
+  • Response is unrelated to the input data/features question
+  • Lacks specificity and measurability
+  • Does not address the question
+╭─────────────────────────────────────────── Follow-up ────────────────────────────────────────────╮
+│ Can you provide an explanation of how the model will use financial data such as missed payments? │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Improved response: ConversationEngine input validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+User response validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+
+⚠️  Please provide an answer - empty responses are not accepted.
+Press Enter after typing your response.
+
+
+⚠️  Quality validation feedback:
+Score: 0/10
+Issues identified:
+  • Response is unrelated to the input data/features question
+  • Lacks specificity and measurability
+  • Does not address the question
+╭─────────────────────────────────────────── Follow-up ────────────────────────────────────────────╮
+│ Can you provide an explanation of how the model will use financial data such as missed payments? │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Improved response: Max attempts (3) reached. Escalating.
+✓ Response accepted (quality: 2/10)
+
+
+Session: E2E CLI Test - 20251022-001601
+╭──────────────── Stage 1 ─────────────────╮
+│ What should the model predict or output? │
+╰──────────────────────────────────────────╯
+
+Your response: ConversationEngine input validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+User response validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+
+⚠️  Please provide an answer - empty responses are not accepted.
+Press Enter after typing your response.
+
+
+Session: E2E CLI Test - 20251022-001601
+╭──────────────── Stage 1 ─────────────────╮
+│ What should the model predict or output? │
+╰──────────────────────────────────────────╯
+
+Your response: 
+⚠️  Quality validation feedback:
+Score: 6/10
+╭───────────────────────────────────────────────────────────────────────────────────────────────────── Follow-up ──────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Here's a specific follow-up question to help clarify the user's response:                                                                                                                                            │
+│                                                                                                                                                                                                                      │
+│ "Can you provide more details about the type of score being calculated, such as what criteria is being used (e.g., recent purchases, interactions with customer support, referrals) and how will this score be used  │
+│ in the CRM system? Additionally, are there any thresholds or cut-offs for determining a 'good' or 'bad' score?"                                                                                                      │
+│                                                                                                                                                                                                                      │
+│ This follow-up question aims to:                                                                                                                                                                                     │
+│                                                                                                                                                                                                                      │
+│ 1. Clarify the specific type of score being calculated                                                                                                                                                               │
+│ 2. Understand the criteria behind the scoring system                                                                                                                                                                 │
+│ 3. Identify potential use cases and implications for the CRM system                                                                                                                                                  │
+│                                                                                                                                                                                                                      │
+│ By asking these additional questions, you can help the user provide more context and ensure a better understanding of what is required from the                                                                      │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Improved response: ConversationEngine input validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+User response validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+
+⚠️  Please provide an answer - empty responses are not accepted.
+Press Enter after typing your response.
+
+
+⚠️  Quality validation feedback:
+Score: 6/10
+╭───────────────────────────────────────────────────────────────────────────────────────────────────── Follow-up ──────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Here's a specific follow-up question to help clarify the user's response:                                                                                                                                            │
+│                                                                                                                                                                                                                      │
+│ "Can you provide more details about the type of score being calculated, such as what criteria is being used (e.g., recent purchases, interactions with customer support, referrals) and how will this score be used  │
+│ in the CRM system? Additionally, are there any thresholds or cut-offs for determining a 'good' or 'bad' score?"                                                                                                      │
+│                                                                                                                                                                                                                      │
+│ This follow-up question aims to:                                                                                                                                                                                     │
+│                                                                                                                                                                                                                      │
+│ 1. Clarify the specific type of score being calculated                                                                                                                                                               │
+│ 2. Understand the criteria behind the scoring system                                                                                                                                                                 │
+│ 3. Identify potential use cases and implications for the CRM system                                                                                                                                                  │
+│                                                                                                                                                                                                                      │
+│ By asking these additional questions, you can help the user provide more context and ensure a better understanding of what is required from the                                                                      │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Improved response: 
+⚠️  Quality validation feedback:
+Score: 6/10
+Issues identified:
+  • Lack of detail on what the model is predicting or outputting
+  • No specification of the type of threshold
+╭─────────────────────────────────────────── Follow-up ───────────────────────────────────────────╮
+│ Can you provide more information on how the static threshold is used in the prediction process? │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Improved response: ConversationEngine input validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+User response validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+
+⚠️  Please provide an answer - empty responses are not accepted.
+Press Enter after typing your response.
+
+
+⚠️  Quality validation feedback:
+Score: 6/10
+Issues identified:
+  • Lack of detail on what the model is predicting or outputting
+  • No specification of the type of threshold
+╭─────────────────────────────────────────── Follow-up ───────────────────────────────────────────╮
+│ Can you provide more information on how the static threshold is used in the prediction process? │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Improved response: Max attempts (3) reached. Escalating.
+✓ Response accepted (quality: 8/10)
+
+
+Session: E2E CLI Test - 20251022-001601
+╭────────────────────────────────── Stage 1 ───────────────────────────────────╮
+│ What type of ML task is this? (classification, regression, clustering, etc.) │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+Your response: ConversationEngine input validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+User response validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+
+⚠️  Please provide an answer - empty responses are not accepted.
+Press Enter after typing your response.
+
+
+Session: E2E CLI Test - 20251022-001601
+╭────────────────────────────────── Stage 1 ───────────────────────────────────╮
+│ What type of ML task is this? (classification, regression, clustering, etc.) │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+Your response: 
+⚠️  Quality validation feedback:
+Score: 0/10
+Issues identified:
+  • Lack of concrete ML task type
+  • No clarity on how subjective factors and biases relate to the ML task
+╭──────────────────────────────────────── Follow-up ────────────────────────────────────────╮
+│ Can you clarify what specific ML tasks are covered under 'Subjective Factors and Biases'? │
+╰───────────────────────────────────────────────────────────────────────────────────────────╯
+
+Improved response: 
+⚠️  Quality validation feedback:
+Score: 5/10
+╭───────────────────────────────────────────────────────────────────────────────────────────────────── Follow-up ──────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Here's a potential follow-up question:                                                                                                                                                                               │
+│                                                                                                                                                                                                                      │
+│ "Can you help clarify what you mean by 'rigid structure' and the 'assumptions baked into the initial design'? What specific limitations or constraints are you referring to, and how do they impact the ML task at   │
+│ hand?"                                                                                                                                                                                                               │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Improved response: ConversationEngine input validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+User response validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+
+⚠️  Please provide an answer - empty responses are not accepted.
+Press Enter after typing your response.
+
+
+⚠️  Quality validation feedback:
+Score: 5/10
+╭───────────────────────────────────────────────────────────────────────────────────────────────────── Follow-up ──────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Here's a potential follow-up question:                                                                                                                                                                               │
+│                                                                                                                                                                                                                      │
+│ "Can you help clarify what you mean by 'rigid structure' and the 'assumptions baked into the initial design'? What specific limitations or constraints are you referring to, and how do they impact the ML task at   │
+│ hand?"                                                                                                                                                                                                               │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Improved response: Max attempts (3) reached. Escalating.
+✓ Response accepted (quality: 5/10)
+
+
+Session: E2E CLI Test - 20251022-001601
+╭─────────────────────────── Stage 1 ────────────────────────────╮
+│ What will this project NOT do? What's explicitly out of scope? │
+╰────────────────────────────────────────────────────────────────╯
+
+Your response: ConversationEngine input validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+User response validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+
+⚠️  Please provide an answer - empty responses are not accepted.
+Press Enter after typing your response.
+
+
+Session: E2E CLI Test - 20251022-001601
+╭─────────────────────────── Stage 1 ────────────────────────────╮
+│ What will this project NOT do? What's explicitly out of scope? │
+╰────────────────────────────────────────────────────────────────╯
+
+Your response: ✓ Response accepted (quality: 9/10)
+
+
+Session: E2E CLI Test - 20251022-001601
+╭──────────────────────────── Stage 1 ─────────────────────────────╮
+│ What are the constraints? (time, budget, resources, regulations) │
+╰──────────────────────────────────────────────────────────────────╯
+
+Your response: ConversationEngine input validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+User response validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+
+⚠️  Please provide an answer - empty responses are not accepted.
+Press Enter after typing your response.
+
+
+Session: E2E CLI Test - 20251022-001601
+╭──────────────────────────── Stage 1 ─────────────────────────────╮
+│ What are the constraints? (time, budget, resources, regulations) │
+╰──────────────────────────────────────────────────────────────────╯
+
+Your response: 
+⚠️  Quality validation feedback:
+Score: 5/10
+Issues identified:
+  • Lack of specificity regarding industry/segment bias
+  • No concrete examples or numbers provided
+╭─────────────────────────────────────────── Follow-up ────────────────────────────────────────────╮
+│ What specific types of industry/segments are you referring to, and how do they impact the model? │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Improved response: ConversationEngine input validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+User response validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+
+⚠️  Please provide an answer - empty responses are not accepted.
+Press Enter after typing your response.
+
+
+⚠️  Quality validation feedback:
+Score: 5/10
+Issues identified:
+  • Lack of specificity regarding industry/segment bias
+  • No concrete examples or numbers provided
+╭─────────────────────────────────────────── Follow-up ────────────────────────────────────────────╮
+│ What specific types of industry/segments are you referring to, and how do they impact the model? │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Improved response: ✓ Response accepted (quality: 8/10)
+
+
+Session: E2E CLI Test - 20251022-001601
+╭──────────────────────── Stage 1 ─────────────────────────╮
+│ What edge cases or special scenarios should be excluded? │
+╰──────────────────────────────────────────────────────────╯
+
+Your response: ConversationEngine input validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+User response validation failed: 1 validation error for ConversationEngineInputs
+user_response
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+
+⚠️  Please provide an answer - empty responses are not accepted.
+Press Enter after typing your response.
+
+
+Session: E2E CLI Test - 20251022-001601
+╭──────────────────────── Stage 1 ─────────────────────────╮
+│ What edge cases or special scenarios should be excluded? │
+╰──────────────────────────────────────────────────────────╯
+
+Your response: ✓ Response accepted (quality: 9/10)
+
+⠹ Running Stage 1 with live LLM...
+✗ Stage 1 failed: 'SessionRepository' object has no attribute 'update_stage_data'
+Traceback (most recent call last):
+  File "/Users/ifiokmoses/code/AIEngineeringProgram/test_e2e_cli_live.py", line 141, in run_e2e_test
+    await session_repo.update_stage_data(
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'SessionRepository' object has no attribute 'update_stage_data'. Did you mean: 'update_stage'?
+
+
+❌ Test failed: 'SessionRepository' object has no attribute 'update_stage_data'
+Traceback (most recent call last):
+  File "/Users/ifiokmoses/code/AIEngineeringProgram/test_e2e_cli_live.py", line 224, in main
+    result = asyncio.run(run_e2e_test())
+  File "/Users/ifiokmoses/.local/share/uv/python/cpython-3.13.3-macos-aarch64-none/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/Users/ifiokmoses/.local/share/uv/python/cpython-3.13.3-macos-aarch64-none/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/ifiokmoses/.local/share/uv/python/cpython-3.13.3-macos-aarch64-none/lib/python3.13/asyncio/base_events.py", line 719, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/Users/ifiokmoses/code/AIEngineeringProgram/test_e2e_cli_live.py", line 141, in run_e2e_test
+    await session_repo.update_stage_data(
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'SessionRepository' object has no attribute 'update_stage_data'. Did you mean: 'update_stage'?
+

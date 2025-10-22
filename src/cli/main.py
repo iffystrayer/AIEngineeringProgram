@@ -15,6 +15,12 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, DownloadColumn
+from rich.align import Align
+from rich.text import Text
+from rich.box import ROUNDED, HEAVY
+from rich.rule import Rule
+from rich.columns import Columns
 
 from src.database.connection import DatabaseManager
 from src.database.repositories.session_repository import SessionRepository
@@ -76,6 +82,20 @@ def cli(ctx: click.Context, verbose: bool, config: Optional[str]) -> None:
         os.environ["LOG_LEVEL"] = os.getenv("LOG_LEVEL", "INFO")
 
 
+def _display_cli_welcome() -> None:
+    """Display a beautiful welcome banner for the CLI."""
+    title = Text("U-AIP Scoping Assistant", style="bold cyan", justify="center")
+    subtitle = Text("Universal AI Project Scoping and Framing Protocol", style="dim cyan", justify="center")
+    version_text = Text(f"v{__version__}", style="dim yellow", justify="center")
+
+    console.print("\n")
+    console.print(Align.center(title))
+    console.print(Align.center(subtitle))
+    console.print(Align.center(version_text))
+    console.print(Align.center(Rule(style="cyan")))
+    console.print()
+
+
 # ============================================================================
 # START COMMAND
 # ============================================================================
@@ -113,11 +133,13 @@ def start_command(
       uaip start "Customer Churn Prediction Model"
       uaip start --user-id john.doe
     """
+    _display_cli_welcome()
     console.print(
         Panel.fit(
-            "[bold cyan]U-AIP Scoping Assistant[/bold cyan]\n"
-            "[dim]Starting new project evaluation session...[/dim]",
+            "[bold cyan]🚀 Starting New Session[/bold cyan]\n"
+            "[dim]Initializing project evaluation workflow...[/dim]",
             border_style="cyan",
+            box=ROUNDED,
         )
     )
 
@@ -235,7 +257,8 @@ async def _start_session_async(
         orchestrator.active_sessions[session.session_id] = session
 
         # Run through stages based on start_stage
-        console.print(f"\n[bold cyan]Starting Multi-Stage Interview (Stages {start_stage}-5)[/bold cyan]")
+        console.print(f"\n[bold cyan]🎯 Starting Multi-Stage Interview (Stages {start_stage}-5)[/bold cyan]")
+        console.print(Align.center(Rule(style="cyan")))
 
         for stage_num in range(start_stage, 6):
             stage_names = {
@@ -247,9 +270,21 @@ async def _start_session_async(
             }
             stage_name = stage_names[stage_num]
 
-            console.print(f"\n[bold yellow]{'='*60}[/bold yellow]")
-            console.print(f"[bold cyan]Stage {stage_num}: {stage_name}[/bold cyan]")
-            console.print(f"[bold yellow]{'='*60}[/bold yellow]\n")
+            # Display stage progress
+            progress_items = []
+            for i in range(1, 6):
+                if i < stage_num:
+                    progress_items.append(f"[green]✓ Stage {i}[/green]")
+                elif i == stage_num:
+                    progress_items.append(f"[bold cyan]► Stage {i}[/bold cyan]")
+                else:
+                    progress_items.append(f"[dim]○ Stage {i}[/dim]")
+
+            console.print(f"\n[bold cyan]{'='*60}[/bold cyan]")
+            console.print(f"[bold yellow]Stage {stage_num}: {stage_name}[/bold yellow]")
+            console.print(f"[bold cyan]{'='*60}[/bold cyan]")
+            console.print("  " + " → ".join(progress_items))
+            console.print()
 
             try:
                 # Run the stage (no spinner - stage handles its own interactive prompts)
@@ -338,11 +373,13 @@ def resume_command(ctx: click.Context, session_id: str) -> None:
     Example:
       uaip resume 550e8400-e29b-41d4-a716-446655440000
     """
+    _display_cli_welcome()
     console.print(
         Panel.fit(
-            "[bold cyan]U-AIP Scoping Assistant[/bold cyan]\n"
-            "[dim]Resuming session...[/dim]",
+            "[bold cyan]▶️  Resuming Session[/bold cyan]\n"
+            "[dim]Loading your project evaluation session...[/dim]",
             border_style="cyan",
+            box=ROUNDED,
         )
     )
 
@@ -577,11 +614,13 @@ def list_command(
       uaip list --status in_progress
       uaip list --format json --limit 5
     """
+    _display_cli_welcome()
     console.print(
         Panel.fit(
-            "[bold cyan]U-AIP Scoping Assistant[/bold cyan]\n"
-            "[dim]Listing sessions...[/dim]",
+            "[bold cyan]📋 Listing Sessions[/bold cyan]\n"
+            "[dim]Retrieving your project scoping sessions...[/dim]",
             border_style="cyan",
+            box=ROUNDED,
         )
     )
 
@@ -683,8 +722,13 @@ async def _list_sessions_async(
 
         # Output based on format
         if output_format == "table":
-            # Create Rich table
-            table = Table(title=f"Your Sessions ({len(limited_sessions)})")
+            # Create Rich table with enhanced styling
+            table = Table(
+                title=f"📊 Your Sessions ({len(limited_sessions)})",
+                box=ROUNDED,
+                show_header=True,
+                header_style="bold cyan",
+            )
             table.add_column("Session ID", style="cyan", no_wrap=True)
             table.add_column("Project Name", style="white", max_width=40)
             table.add_column("Stage", justify="center", style="yellow")
@@ -916,11 +960,13 @@ async def _export_charter_async(
     from src.database.repositories.charter_repository import CharterRepository
     from src.export import CharterDocumentGenerator
 
+    _display_cli_welcome()
     console.print(
         Panel.fit(
-            "[bold cyan]U-AIP Charter Export[/bold cyan]\n"
+            "[bold cyan]📄 Charter Export[/bold cyan]\n"
             f"[dim]Exporting session {session_id}...[/dim]",
             border_style="cyan",
+            box=ROUNDED,
         )
     )
 
