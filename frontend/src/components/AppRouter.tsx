@@ -5,6 +5,8 @@ import Dashboard from './pages/Dashboard'
 import SessionsList from './pages/SessionsList'
 import SessionDetail from './pages/SessionDetail'
 import StageExecution from './pages/StageExecution'
+import CharterView from './pages/CharterView'
+import ConsistencyCheckPage from './pages/ConsistencyCheckPage'
 
 export default function AppRouter() {
   return (
@@ -18,8 +20,9 @@ export default function AppRouter() {
         <Route path="/sessions" element={<SessionsList />} />
         <Route path="/sessions/:id" element={<SessionDetail />} />
         <Route path="/sessions/:id/stage/:stageId" element={<StageExecution />} />
-        {/* Additional routes for Phase 3 */}
-        {/* <Route path="/charter/:id" element={<CharterView />} /> */}
+        <Route path="/sessions/:id/consistency" element={<ConsistencyCheckPage />} />
+        <Route path="/charter/:id" element={<CharterView />} />
+        {/* Additional routes for future phases */}
         {/* <Route path="/settings" element={<Settings />} /> */}
       </Route>
 

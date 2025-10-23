@@ -159,22 +159,41 @@ export default function SessionDetail() {
         </div>
       </div>
 
-      {/* Charter Section - if completed */}
+      {/* Consistency Checking & Charter Section - if completed */}
       {session.status === 'completed' && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-green-900 mb-2">
-            Questionnaire Complete! 🎉
-          </h2>
-          <p className="text-green-700 mb-4">
-            Your data governance charter has been generated. You can now review
-            and download it.
-          </p>
-          <button
-            onClick={() => navigate(`/charter/${session.id}`)}
-            className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-6 rounded-lg transition-colors"
-          >
-            View Charter
-          </button>
+        <div className="space-y-6">
+          {/* Consistency Check */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <h2 className="text-lg font-semibold text-blue-900 mb-2">
+              Consistency Check
+            </h2>
+            <p className="text-blue-700 mb-4">
+              Validate your questionnaire responses for consistency and completeness
+            </p>
+            <button
+              onClick={() => navigate(`/sessions/${session.id}/consistency`)}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+            >
+              Check Consistency
+            </button>
+          </div>
+
+          {/* Charter Section */}
+          <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+            <h2 className="text-lg font-semibold text-green-900 mb-2">
+              Questionnaire Complete! 🎉
+            </h2>
+            <p className="text-green-700 mb-4">
+              Your data governance charter has been generated. You can now review
+              and download it.
+            </p>
+            <button
+              onClick={() => navigate(`/charter/${session.id}`)}
+              className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+            >
+              View Charter
+            </button>
+          </div>
         </div>
       )}
     </div>
