@@ -8,12 +8,15 @@ Provides shared fixtures for all tests including:
 """
 
 import asyncio
+import logging
 import os
 from typing import Any, AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -117,14 +120,15 @@ def api_test_db_manager(event_loop):
     from src.database.connection import DatabaseManager, DatabaseConfig
 
     # Use test database with correct credentials
+    # Use smaller pool for testing to avoid connection exhaustion
     config = DatabaseConfig(
         host="localhost",
         port=15432,
         database="uaip_scoping_test",
         user="uaip_user",
         password="changeme",
-        min_pool_size=2,
-        max_pool_size=10,
+        min_pool_size=1,
+        max_pool_size=3,  # Small pool for tests
     )
 
     manager = DatabaseManager(config)
@@ -135,7 +139,10 @@ def api_test_db_manager(event_loop):
         yield manager
     finally:
         # Close using the pytest event loop
-        event_loop.run_until_complete(manager.close())
+        try:
+            event_loop.run_until_complete(manager.close())
+        except Exception as e:
+            logger.warning(f"Error closing database in test cleanup: {e}")
 
 
 # ============================================================================
@@ -236,12 +243,73 @@ def cleanup_after_test() -> None:
 
 
 @pytest.fixture
+def mock_api_client(event_loop):
+    """
+    Create FastAPI test client with mocked repositories.
+
+    This fixture uses mocks for the database repositories to avoid
+    connection pooling issues during testing. Good for unit testing
+    the API logic independent of the database.
+    """
+    from fastapi.testclient import TestClient
+    from src.api.main import app
+    from uuid import uuid4
+    from datetime import datetime, timezone
+    from src.models.schemas import Session, SessionStatus
+
+    # Initialize the API modules with mocks
+    import src.api.main as api_main
+
+    # Create mock database manager (no real connections)
+    api_main.db_manager = AsyncMock()
+
+    # Create mock repositories
+    mock_session_repo = AsyncMock()
+    mock_stage_data_repo = AsyncMock()
+    mock_checkpoint_repo = AsyncMock()
+    mock_orchestrator = AsyncMock()
+
+    # Set up sensible defaults for mocks
+    async def mock_create_session(user_id, project_name):
+        return Session(
+            session_id=uuid4(),
+            user_id=user_id,
+            project_name=project_name,
+            started_at=datetime.now(timezone.utc),
+            last_updated_at=datetime.now(timezone.utc),
+            current_stage=1,
+            stage_data={},
+            conversation_history=[],
+            status=SessionStatus.IN_PROGRESS,
+            checkpoints=[],
+        )
+
+    mock_orchestrator.create_session = mock_create_session
+    mock_session_repo.get_by_id = AsyncMock(return_value=None)  # Returns None by default (404)
+    mock_stage_data_repo.get_stage_data = AsyncMock(return_value={})
+
+    api_main.session_repo = mock_session_repo
+    api_main.stage_data_repo = mock_stage_data_repo
+    api_main.checkpoint_repo = mock_checkpoint_repo
+    api_main.orchestrator = mock_orchestrator
+
+    client = TestClient(app)
+
+    # Store mocks for test access
+    client.mock_session_repo = mock_session_repo
+    client.mock_stage_data_repo = mock_stage_data_repo
+    client.mock_orchestrator = mock_orchestrator
+
+    return client
+
+
+@pytest.fixture
 def api_client(event_loop, api_test_db_manager):
     """
     Create FastAPI test client with initialized database.
 
     This fixture provides a TestClient that has the database initialized
-    and ready for testing API endpoints.
+    and ready for testing API endpoints. Used for integration tests.
     """
     from fastapi.testclient import TestClient
     from src.api.main import app

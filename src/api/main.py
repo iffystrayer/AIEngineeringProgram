@@ -237,7 +237,23 @@ async def get_session(session_id: str) -> Dict[str, Any]:
 
     try:
         session_uuid = validate_uuid(session_id)
-        session = await session_repo.get_by_id(session_uuid)
+
+        try:
+            session = await session_repo.get_by_id(session_uuid)
+        except Exception as repo_error:
+            # Handle repository errors gracefully
+            logger.debug(f"Repository error getting session {session_uuid}: {repo_error}")
+            # If it's a "not found" scenario, return 404
+            if "not found" in str(repo_error).lower() or "no rows" in str(repo_error).lower():
+                raise HTTPException(
+                    status_code=404,
+                    detail=create_error_response(
+                        code="NOT_FOUND",
+                        message=f"Session {session_id} not found",
+                        status_code=404,
+                    ),
+                )
+            raise
 
         if not session:
             raise HTTPException(
