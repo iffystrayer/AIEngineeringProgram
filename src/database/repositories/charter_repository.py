@@ -8,6 +8,7 @@ Handles storage and retrieval of final charter documents.
 import json
 import logging
 from datetime import datetime
+from typing import Optional, Dict
 from uuid import UUID
 
 from src.database.connection import DatabaseManager
@@ -45,8 +46,8 @@ class CharterRepository:
     async def create_charter(
         self,
         charter: AIProjectCharter,
-        markdown_path: str | None = None,
-        pdf_path: str | None = None,
+        markdown_path: Optional[str] = None,
+        pdf_path: Optional[str] = None,
     ) -> None:
         """
         Create a charter for a session.
@@ -98,7 +99,7 @@ class CharterRepository:
     # RETRIEVAL OPERATIONS
     # ========================================================================
 
-    async def get_charter_by_session(self, session_id: UUID) -> AIProjectCharter | None:
+    async def get_charter_by_session(self, session_id: UUID) -> Optional[AIProjectCharter]:
         """
         Retrieve charter by session ID.
 
@@ -136,7 +137,7 @@ class CharterRepository:
             logger.error(f"Failed to get charter: {e}")
             raise CharterRepositoryError(f"Charter retrieval failed: {e}") from e
 
-    async def get_charter_paths(self, session_id: UUID) -> dict[str, str | None] | None:
+    async def get_charter_paths(self, session_id: UUID) -> Optional[Dict[str, Optional[str]]]:
         """
         Get file paths for charter exports.
 
@@ -179,8 +180,8 @@ class CharterRepository:
     async def update_charter_paths(
         self,
         session_id: UUID,
-        markdown_path: str | None = None,
-        pdf_path: str | None = None,
+        markdown_path: Optional[str] = None,
+        pdf_path: Optional[str] = None,
     ) -> None:
         """
         Update file paths for charter exports.
@@ -289,7 +290,7 @@ class CharterRepository:
             logger.error(f"Failed to check charter existence: {e}")
             raise CharterRepositoryError(f"Charter existence check failed: {e}") from e
 
-    async def get_governance_decision(self, session_id: UUID) -> GovernanceDecision | None:
+    async def get_governance_decision(self, session_id: UUID) -> Optional[GovernanceDecision]:
         """
         Get governance decision for a charter.
 

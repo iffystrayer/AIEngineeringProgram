@@ -214,9 +214,9 @@ Provide your evaluation in the JSON format specified in the system prompt."""
         # Call LLM for consistency analysis
         try:
             llm_response = await self.llm_router.route(
+                prompt=user_prompt,
                 model_preference="sonnet",  # Use Sonnet for complex reasoning
                 system_prompt=self.SYSTEM_PROMPT,
-                user_prompt=user_prompt,
                 response_format="json"
             )
 

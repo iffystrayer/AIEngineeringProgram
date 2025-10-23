@@ -7,6 +7,7 @@ Focused repository for session recovery points.
 
 import json
 import logging
+from typing import Optional
 from uuid import UUID
 
 from src.database.connection import DatabaseManager
@@ -81,7 +82,7 @@ class CheckpointRepository:
     # RETRIEVAL OPERATIONS
     # ========================================================================
 
-    async def get_latest_checkpoint(self, session_id: UUID) -> Checkpoint | None:
+    async def get_latest_checkpoint(self, session_id: UUID) -> Optional[Checkpoint]:
         """
         Get the most recent checkpoint for a session.
 
@@ -124,7 +125,7 @@ class CheckpointRepository:
 
     async def get_checkpoint_by_stage(
         self, session_id: UUID, stage_number: int
-    ) -> Checkpoint | None:
+    ) -> Optional[Checkpoint]:
         """
         Get checkpoint for a specific stage.
 

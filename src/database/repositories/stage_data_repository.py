@@ -7,7 +7,7 @@ Handles JSONB serialization for complex stage deliverables.
 
 import json
 import logging
-from typing import Any
+from typing import Any, Optional
 from uuid import UUID
 
 from src.database.connection import DatabaseManager
@@ -48,7 +48,7 @@ class StageDataRepository:
         stage_number: int,
         field_name: str,
         field_value: Any,
-        quality_score: float | None = None,
+        quality_score: Optional[float] = None,
     ) -> None:
         """
         Save or update a single field for a stage (UPSERT).
@@ -159,7 +159,7 @@ class StageDataRepository:
     # RETRIEVAL OPERATIONS
     # ========================================================================
 
-    async def get_field(self, session_id: UUID, stage_number: int, field_name: str) -> Any | None:
+    async def get_field(self, session_id: UUID, stage_number: int, field_name: str) -> Optional[Any]:
         """
         Retrieve a specific field value.
 
@@ -276,7 +276,7 @@ class StageDataRepository:
 
     async def get_field_quality_score(
         self, session_id: UUID, stage_number: int, field_name: str
-    ) -> float | None:
+    ) -> Optional[float]:
         """
         Get quality score for a specific field.
 

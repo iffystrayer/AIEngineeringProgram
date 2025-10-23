@@ -12,7 +12,7 @@ Features:
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, Union, List, Dict
 
 from src.llm.base import (
     BaseLLMProvider,
@@ -155,7 +155,7 @@ class LLMRouter:
 
     async def route(
         self,
-        prompt: str | list[dict[str, str]],
+        prompt: Union[str, List[Dict[str, str]]],
         context: Optional[Any] = None,
         model_tier: ModelTier = ModelTier.BALANCED,
         provider: Optional[str] = None,
@@ -231,7 +231,7 @@ class LLMRouter:
 
     def _build_request(
         self,
-        prompt: str | list[dict[str, str]],
+        prompt: Union[str, List[Dict[str, str]]],
         model_tier: ModelTier,
         **kwargs,
     ) -> LLMRequest:

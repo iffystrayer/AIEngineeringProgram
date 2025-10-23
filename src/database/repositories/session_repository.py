@@ -8,6 +8,7 @@ Handles session lifecycle, checkpoints, and conversation history.
 import json
 import logging
 from datetime import datetime
+from typing import Optional
 from uuid import UUID, uuid4
 
 import asyncpg
@@ -123,7 +124,7 @@ class SessionRepository:
     # READ OPERATIONS
     # ========================================================================
 
-    async def get_by_id(self, session_id: UUID) -> Session | None:
+    async def get_by_id(self, session_id: UUID) -> Optional[Session]:
         """
         Retrieve session by ID.
 
@@ -241,7 +242,7 @@ class SessionRepository:
         return await self.get_sessions_by_status(SessionStatus.IN_PROGRESS, user_id)
 
     async def get_sessions_by_status(
-        self, status: SessionStatus, user_id: str | None = None
+        self, status: SessionStatus, user_id: Optional[str] = None
     ) -> list[Session]:
         """
         Get sessions filtered by status.
@@ -498,7 +499,7 @@ class SessionRepository:
             logger.error(f"Failed to add checkpoint for session {session_id}: {e}")
             raise SessionRepositoryError(f"Checkpoint creation failed: {e}") from e
 
-    async def get_latest_checkpoint(self, session_id: UUID) -> Checkpoint | None:
+    async def get_latest_checkpoint(self, session_id: UUID) -> Optional[Checkpoint]:
         """
         Get the most recent checkpoint for a session.
 
