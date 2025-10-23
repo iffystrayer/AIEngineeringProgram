@@ -230,4 +230,38 @@ def cleanup_after_test() -> None:
     # Add cleanup code here if needed
 
 
+# ============================================================================
+# API TEST FIXTURES
+# ============================================================================
+
+
+@pytest.fixture
+def api_client(event_loop, api_test_db_manager):
+    """
+    Create FastAPI test client with initialized database.
+
+    This fixture provides a TestClient that has the database initialized
+    and ready for testing API endpoints.
+    """
+    from fastapi.testclient import TestClient
+    from src.api.main import app
+
+    # Initialize the API modules with the database manager
+    import src.api.main as api_main
+    api_main.db_manager = api_test_db_manager
+
+    # Initialize repositories
+    from src.database.repositories.session_repository import SessionRepository
+    from src.database.repositories.stage_data_repository import StageDataRepository
+    from src.database.repositories.checkpoint_repository import CheckpointRepository
+    from src.agents.orchestrator import Orchestrator
+
+    api_main.session_repo = SessionRepository(api_test_db_manager)
+    api_main.stage_data_repo = StageDataRepository(api_test_db_manager)
+    api_main.checkpoint_repo = CheckpointRepository(api_test_db_manager)
+    api_main.orchestrator = Orchestrator(api_test_db_manager)
+
+    return TestClient(app)
+
+
 
