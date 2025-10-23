@@ -393,6 +393,15 @@ class Orchestrator:
                 f"Output type: {type(stage_output).__name__}"
             )
 
+        # Persist session updates to database (outside lock - I/O operation)
+        if self.session_repo:
+            try:
+                await self.session_repo.update(session)
+                logger.info(f"Persisted stage {stage_number} completion to database")
+            except Exception as e:
+                logger.error(f"Failed to persist stage completion: {e}")
+                # Don't raise - allow session to continue even if persistence fails
+
         return stage_output
 
     async def advance_to_next_stage(self, session: Session) -> None:
@@ -401,9 +410,34 @@ class Orchestrator:
 
         M-2 Security Fix: Uses lock to ensure atomic stage advancement.
 
+        SWE Spec Compliance: Enforces stage-gate validation before progression (FR-1.2, FR-4).
+
         Args:
             session: Current session
+
+        Raises:
+            ValueError: If stage gate validation fails
         """
+        # SWE Spec FR-4: Stage Gate Validation BEFORE advancement
+        completed_stage = session.current_stage
+        validation = await self.invoke_stage_gate_validator(session, completed_stage)
+
+        if not validation.can_proceed:
+            logger.warning(
+                f"Stage gate validation failed for stage {completed_stage}. "
+                f"Missing items: {validation.missing_items}. "
+                f"Concerns: {validation.validation_concerns}"
+            )
+            raise ValueError(
+                f"Cannot advance from stage {completed_stage}: "
+                f"Stage gate validation failed. "
+                f"Missing: {', '.join(validation.missing_items)}. "
+                f"Please complete all required fields before proceeding."
+            )
+
+        logger.info(f"Stage gate validation passed for stage {completed_stage} "
+                   f"(completeness: {validation.completeness_score:.2f})")
+
         # M-2: Lock for atomic stage advancement
         lock = self._get_session_lock(session.session_id)
         async with lock:
@@ -416,6 +450,14 @@ class Orchestrator:
 
         # Create checkpoint (has its own locking)
         await self.save_checkpoint(session, session.current_stage - 1)
+
+        # Persist session advancement to database (outside lock - I/O operation)
+        if self.session_repo:
+            try:
+                await self.session_repo.update(session)
+                logger.info(f"Persisted stage advancement to database")
+            except Exception as e:
+                logger.error(f"Failed to persist stage advancement: {e}")
 
         logger.info(f"Advanced session {session.session_id} to stage {session.current_stage}")
 
@@ -606,6 +648,8 @@ class Orchestrator:
         """
         Generate complete AI Project Charter from all stage data.
 
+        SWE Spec Compliance: Performs cross-stage consistency checking before charter generation (FR-5).
+
         Args:
             session: Completed session with all stage data
 
@@ -614,6 +658,7 @@ class Orchestrator:
 
         Raises:
             ValueError: If session not completed or missing stage data
+            CharterGenerationError: If consistency check fails critically
         """
         # M-3: Use specific exceptions for charter generation errors
         if session.status != SessionStatus.COMPLETED:
@@ -627,6 +672,38 @@ class Orchestrator:
             raise CharterGenerationError(
                 "All 5 stages must be completed",
                 missing_stages=missing_stages
+            )
+
+        # SWE Spec FR-5: Cross-Stage Consistency Checking
+        logger.info("Running cross-stage consistency check before charter generation...")
+        consistency_report = await self.invoke_consistency_checker(session)
+
+        if not consistency_report.is_consistent:
+            logger.warning(
+                f"Consistency check found issues: "
+                f"{len(consistency_report.contradictions)} contradictions, "
+                f"{len(consistency_report.risk_areas)} risk areas. "
+                f"Feasibility: {consistency_report.overall_feasibility.value}"
+            )
+
+            # If feasibility is INFEASIBLE, block charter generation
+            if consistency_report.overall_feasibility == FeasibilityLevel.INFEASIBLE:
+                raise CharterGenerationError(
+                    f"Cannot generate charter: Project has critical inconsistencies. "
+                    f"Contradictions: {', '.join(consistency_report.contradictions[:3])}. "
+                    f"Please revise stages to resolve conflicts.",
+                    missing_stages=[]
+                )
+
+            # For other feasibility levels, warn but allow charter generation
+            logger.warning(
+                f"Generating charter with consistency concerns. "
+                f"Recommendations: {', '.join(consistency_report.recommendations[:3])}"
+            )
+        else:
+            logger.info(
+                f"Consistency check passed. "
+                f"Overall feasibility: {consistency_report.overall_feasibility.value}"
             )
 
         # Extract stage deliverables
