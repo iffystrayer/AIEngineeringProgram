@@ -9,6 +9,7 @@ import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Optional
 
 import asyncpg
 from asyncpg import Pool
@@ -80,7 +81,7 @@ class DatabaseManager:
 
     def __init__(self, config: DatabaseConfig) -> None:
         self.config = config
-        self._pool: Pool | None = None
+        self._pool: Optional[Pool] = None
         self._lock = asyncio.Lock()
 
     async def initialize(self) -> None:
@@ -146,7 +147,7 @@ class DatabaseManager:
         return self._pool is not None
 
     @property
-    def pool(self) -> Pool | None:
+    def pool(self) -> Optional[Pool]:
         """Get the underlying connection pool."""
         return self._pool
 
@@ -241,10 +242,10 @@ class DatabaseManager:
 
 
 # Singleton instance for application-wide use
-_db_manager: DatabaseManager | None = None
+_db_manager: Optional[DatabaseManager] = None
 
 
-def get_database_manager(config: DatabaseConfig | None = None) -> DatabaseManager:
+def get_database_manager(config: Optional[DatabaseConfig] = None) -> DatabaseManager:
     """
     Get or create the global DatabaseManager instance.
 
@@ -267,7 +268,7 @@ def get_database_manager(config: DatabaseConfig | None = None) -> DatabaseManage
     return _db_manager
 
 
-async def initialize_database(config: DatabaseConfig | None = None) -> DatabaseManager:
+async def initialize_database(config: Optional[DatabaseConfig] = None) -> DatabaseManager:
     """
     Initialize the global database manager.
 

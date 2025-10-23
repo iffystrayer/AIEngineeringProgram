@@ -167,6 +167,30 @@ class StageGateValidatorAgent:
 
         logger.info("Initialized StageGateValidatorAgent")
 
+    def _get_field(self, data: Any, field: str, default: Any = None) -> Any:
+        """
+        Safely get field value from dict or dataclass object.
+
+        Args:
+            data: Data object (dict or dataclass)
+            field: Field name to retrieve
+            default: Default value if field not found
+
+        Returns:
+            Field value or default
+        """
+        from dataclasses import is_dataclass
+
+        if data is None:
+            return default
+
+        if is_dataclass(data):
+            return getattr(data, field, default)
+        elif isinstance(data, dict):
+            return data.get(field, default)
+        else:
+            return default
+
     async def validate_stage(
         self,
         stage_number: int,
@@ -180,7 +204,7 @@ class StageGateValidatorAgent:
 
         Args:
             stage_number: Stage number (1-5)
-            collected_data: Data collected during stage (deliverable dict)
+            collected_data: Data collected during stage (deliverable dict or dataclass)
 
         Returns:
             StageValidation: Validation result with proceed decision and feedback
@@ -196,7 +220,7 @@ class StageGateValidatorAgent:
         if collected_data is None:
             collected_data = {}
 
-        logger.info(f"Validating Stage {stage_number} completion")
+        logger.info(f"Validating Stage {stage_number} completion (data type: {type(collected_data).__name__})")
 
         # Initialize validation tracking
         missing_items = []
@@ -209,9 +233,22 @@ class StageGateValidatorAgent:
         validation_rules = requirements["validation_rules"]
 
         # Check mandatory fields
+        # Handle both dict and dataclass objects
+        from dataclasses import is_dataclass
+
         for field in mandatory_fields:
-            if field not in collected_data or not collected_data[field]:
-                missing_items.append(f"Missing mandatory field: {field}")
+            if is_dataclass(collected_data):
+                # For dataclass objects, use hasattr and getattr
+                if not hasattr(collected_data, field):
+                    missing_items.append(f"Missing mandatory field: {field}")
+                else:
+                    field_value = getattr(collected_data, field)
+                    if field_value is None or (isinstance(field_value, (list, dict, str)) and not field_value):
+                        missing_items.append(f"Missing mandatory field: {field}")
+            else:
+                # For dict objects, use dict access
+                if field not in collected_data or not collected_data[field]:
+                    missing_items.append(f"Missing mandatory field: {field}")
 
         # Run stage-specific validation rules
         if stage_number == 1:
@@ -231,9 +268,26 @@ class StageGateValidatorAgent:
         passed_checks = max(0, total_checks - failed_checks)
 
         # Special case: if all fields missing, score is 0.0
-        if not collected_data or len(collected_data) == 0:
+        # Check for empty data - handle both dict and dataclass
+        from dataclasses import is_dataclass, fields as dataclass_fields
+
+        if not collected_data:
             completeness_score = 0.0
+        elif is_dataclass(collected_data):
+            # For dataclass, check if any fields have values
+            has_data = any(getattr(collected_data, f.name, None) is not None
+                          for f in dataclass_fields(collected_data))
+            if not has_data:
+                completeness_score = 0.0
+            else:
+                completeness_score = passed_checks / total_checks if total_checks > 0 else 0.0
+        elif isinstance(collected_data, dict):
+            if len(collected_data) == 0:
+                completeness_score = 0.0
+            else:
+                completeness_score = passed_checks / total_checks if total_checks > 0 else 0.0
         else:
+            # Unknown type, assume it has data
             completeness_score = passed_checks / total_checks if total_checks > 0 else 0.0
 
         # Generate recommendations
@@ -270,23 +324,33 @@ class StageGateValidatorAgent:
     ) -> None:
         """Validate Stage 1: Business Translation."""
         # ML archetype justified
-        if "ml_archetype_justification" not in data or not data["ml_archetype_justification"]:
+        ml_archetype_justification = self._get_field(data, "ml_archetype_justification")
+        if not ml_archetype_justification:
             missing_items.append("ML archetype justification required")
 
         # Features defined
-        if "input_features" in data:
-            if not data["input_features"] or len(data["input_features"]) == 0:
-                missing_items.append("At least one input feature must be defined")
+        input_features = self._get_field(data, "input_features", [])
+        if not input_features or len(input_features) == 0:
+            missing_items.append("At least one input feature must be defined")
 
         # Production availability confirmed
-        if "input_features" in data and data["input_features"]:
-            for feature in data["input_features"]:
-                if isinstance(feature, dict):
-                    if "availability_in_production" in feature:
-                        if not feature["availability_in_production"]:
-                            validation_concerns.append(
-                                f"Feature '{feature.get('name', 'unknown')}' not available in production"
-                            )
+        if input_features:
+            for feature in input_features:
+                # Handle both dict and dataclass Feature objects
+                from dataclasses import is_dataclass
+                if is_dataclass(feature):
+                    availability = getattr(feature, "availability_in_production", None)
+                    feature_name = getattr(feature, "name", "unknown")
+                elif isinstance(feature, dict):
+                    availability = feature.get("availability_in_production")
+                    feature_name = feature.get("name", "unknown")
+                else:
+                    continue
+
+                if not availability:
+                    validation_concerns.append(
+                        f"Feature '{feature_name}' not available in production"
+                    )
 
     def _validate_stage2(
         self,
@@ -295,11 +359,23 @@ class StageGateValidatorAgent:
         validation_concerns: List[str]
     ) -> None:
         """Validate Stage 2: Value Quantification."""
+        from dataclasses import is_dataclass
+
         # KPIs are SMART
-        if "business_kpis" in data and data["business_kpis"]:
-            for kpi in data["business_kpis"]:
-                if isinstance(kpi, dict):
-                    # Check SMART criteria
+        business_kpis = self._get_field(data, "business_kpis", [])
+        if business_kpis:
+            for kpi in business_kpis:
+                if is_dataclass(kpi):
+                    # Check SMART criteria for dataclass
+                    if not all(hasattr(kpi, k) and getattr(kpi, k) is not None
+                             for k in ["current_baseline", "target_value", "target_timeframe"]):
+                        kpi_name = getattr(kpi, "name", "unknown")
+                        validation_concerns.append(
+                            f"KPI '{kpi_name}' missing SMART criteria "
+                            "(current_baseline, target_value, target_timeframe)"
+                        )
+                elif isinstance(kpi, dict):
+                    # Check SMART criteria for dict
                     if not all(k in kpi for k in ["current_baseline", "target_value", "target_timeframe"]):
                         validation_concerns.append(
                             f"KPI '{kpi.get('name', 'unknown')}' missing SMART criteria "
@@ -307,24 +383,39 @@ class StageGateValidatorAgent:
                         )
 
         # Causal pathway articulated
-        if "causal_pathways" in data:
-            if not data["causal_pathways"] or len(data["causal_pathways"]) == 0:
-                missing_items.append("At least one causal pathway must be defined")
+        causal_pathways = self._get_field(data, "causal_pathways", [])
+        if not causal_pathways or len(causal_pathways) == 0:
+            missing_items.append("At least one causal pathway must be defined")
 
         # Metrics aligned (each KPI has linked model metric)
-        if "business_kpis" in data and "causal_pathways" in data:
-            kpis = data["business_kpis"]
-            pathways = data["causal_pathways"]
+        if business_kpis and causal_pathways:
+            linked_kpis = set()
+            for p in causal_pathways:
+                if is_dataclass(p):
+                    biz_kpi = getattr(p, "business_kpi", None)
+                    if biz_kpi:
+                        linked_kpis.add(biz_kpi)
+                elif isinstance(p, dict):
+                    biz_kpi = p.get("business_kpi")
+                    if biz_kpi:
+                        linked_kpis.add(biz_kpi)
 
-            if kpis and pathways:
-                linked_kpis = {p.get("business_kpi") for p in pathways if isinstance(p, dict)}
-                all_kpis = {k.get("name") for k in kpis if isinstance(k, dict)}
+            all_kpis = set()
+            for k in business_kpis:
+                if is_dataclass(k):
+                    kpi_name = getattr(k, "name", None)
+                    if kpi_name:
+                        all_kpis.add(kpi_name)
+                elif isinstance(k, dict):
+                    kpi_name = k.get("name")
+                    if kpi_name:
+                        all_kpis.add(kpi_name)
 
-                unlinked = all_kpis - linked_kpis
-                if unlinked:
-                    validation_concerns.append(
-                        f"KPIs without linked model metrics: {', '.join(unlinked)}"
-                    )
+            unlinked = all_kpis - linked_kpis
+            if unlinked:
+                validation_concerns.append(
+                    f"KPIs without linked model metrics: {', '.join(unlinked)}"
+                )
 
     def _validate_stage3(
         self,
@@ -333,31 +424,47 @@ class StageGateValidatorAgent:
         validation_concerns: List[str]
     ) -> None:
         """Validate Stage 3: Data Feasibility."""
+        from dataclasses import is_dataclass
+
         # All 6 quality dimensions scored
-        if "quality_scores" in data and data["quality_scores"]:
-            scored_dimensions = set(data["quality_scores"].keys())
-            required_dimensions = set(self.QUALITY_DIMENSIONS)
+        quality_scores = self._get_field(data, "quality_scores", {})
+        if quality_scores:
+            if isinstance(quality_scores, dict):
+                # Convert enum keys to string names for comparison
+                scored_dimensions = set()
+                for key in quality_scores.keys():
+                    if hasattr(key, 'name'):  # Enum object
+                        scored_dimensions.add(key.name)
+                    else:  # String key
+                        scored_dimensions.add(str(key))
 
-            missing_dimensions = required_dimensions - scored_dimensions
-            if missing_dimensions:
-                missing_items.append(
-                    f"Missing quality dimension scores: {', '.join(missing_dimensions)}"
-                )
+                required_dimensions = set(self.QUALITY_DIMENSIONS)
 
-            # Minimum quality threshold: 6/10 across all dimensions
-            for dim, score in data["quality_scores"].items():
-                if isinstance(score, (int, float)) and score < 6:
-                    validation_concerns.append(
-                        f"Quality dimension '{dim}' score {score} below minimum threshold of 6"
+                missing_dimensions = required_dimensions - scored_dimensions
+                if missing_dimensions:
+                    missing_items.append(
+                        f"Missing quality dimension scores: {', '.join(sorted(missing_dimensions))}"
                     )
 
+                # Minimum quality threshold: 6/10 across all dimensions
+                for dim, score in quality_scores.items():
+                    if isinstance(score, (int, float)) and score < 6:
+                        validation_concerns.append(
+                            f"Quality dimension '{dim}' score {score} below minimum threshold of 6"
+                        )
+
         # Labeling plan has budget/timeline
-        if "labeling_strategy" in data and data["labeling_strategy"]:
-            strategy = data["labeling_strategy"]
-            if isinstance(strategy, dict):
-                if "cost_estimate" not in strategy or not strategy["cost_estimate"]:
+        labeling_strategy = self._get_field(data, "labeling_strategy")
+        if labeling_strategy:
+            if is_dataclass(labeling_strategy):
+                if not getattr(labeling_strategy, "estimated_cost", None):
                     missing_items.append("Labeling strategy missing cost estimate")
-                if "timeline" not in strategy or not strategy["timeline"]:
+                if not getattr(labeling_strategy, "estimated_time", None):
+                    missing_items.append("Labeling strategy missing timeline")
+            elif isinstance(labeling_strategy, dict):
+                if "cost_estimate" not in labeling_strategy or not labeling_strategy["cost_estimate"]:
+                    missing_items.append("Labeling strategy missing cost estimate")
+                if "timeline" not in labeling_strategy or not labeling_strategy["timeline"]:
                     missing_items.append("Labeling strategy missing timeline")
 
     def _validate_stage4(
@@ -368,17 +475,18 @@ class StageGateValidatorAgent:
     ) -> None:
         """Validate Stage 4: User Experience."""
         # Personas research-based
-        if "user_personas" in data:
-            if not data["user_personas"] or len(data["user_personas"]) == 0:
-                missing_items.append("At least one user persona must be defined")
+        user_personas = self._get_field(data, "user_personas", [])
+        if not user_personas or len(user_personas) == 0:
+            missing_items.append("At least one user persona must be defined")
 
         # Journey map complete
-        if "user_journey_map" in data:
-            if not data["user_journey_map"]:
-                missing_items.append("User journey map must be defined")
+        user_journey_map = self._get_field(data, "user_journey_map")
+        if not user_journey_map:
+            missing_items.append("User journey map must be defined")
 
         # Interpretability specified
-        if "interpretability_needs" not in data or not data["interpretability_needs"]:
+        interpretability_needs = self._get_field(data, "interpretability_needs")
+        if not interpretability_needs:
             missing_items.append("Interpretability requirements must be specified")
 
     def _validate_stage5(
@@ -389,23 +497,30 @@ class StageGateValidatorAgent:
     ) -> None:
         """Validate Stage 5: Ethical Governance."""
         # All ethical principles assessed
-        if "initial_risks" in data and data["initial_risks"]:
-            assessed_principles = set(data["initial_risks"].keys())
+        initial_risks = self._get_field(data, "initial_risks", {})
+        if initial_risks and isinstance(initial_risks, dict):
+            # Convert enum keys to string names for comparison
+            assessed_principles = set()
+            for key in initial_risks.keys():
+                if hasattr(key, 'name'):  # Enum object
+                    assessed_principles.add(key.name)
+                else:  # String key
+                    assessed_principles.add(str(key))
+
             required_principles = set(self.ETHICAL_PRINCIPLES)
 
             missing_principles = required_principles - assessed_principles
             if missing_principles:
                 missing_items.append(
-                    f"Missing ethical principle assessments: {', '.join(missing_principles)}"
+                    f"Missing ethical principle assessments: {', '.join(sorted(missing_principles))}"
                 )
 
         # Residual risk calculated
-        if "residual_risks" in data:
-            if not data["residual_risks"]:
-                missing_items.append("Residual risk calculation required for all principles")
-        else:
-            missing_items.append("Residual risks must be calculated")
+        residual_risks = self._get_field(data, "residual_risks", {})
+        if not residual_risks:
+            missing_items.append("Residual risk calculation required for all principles")
 
         # Governance decision made
-        if "governance_decision" not in data or not data["governance_decision"]:
+        governance_decision = self._get_field(data, "governance_decision")
+        if not governance_decision:
             missing_items.append("Governance decision must be made")
