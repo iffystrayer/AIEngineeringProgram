@@ -226,6 +226,56 @@ class SessionRepository:
             logger.error(f"Failed to get sessions for user {user_id}: {e}")
             raise SessionRepositoryError(f"Failed to retrieve sessions: {e}") from e
 
+    async def get_all_sessions(self, limit: int = 100, skip: int = 0) -> list[Session]:
+        """
+        Retrieve all sessions with pagination.
+
+        Args:
+            limit: Maximum number of sessions to return (default 100)
+            skip: Number of sessions to skip (default 0)
+
+        Returns:
+            List[Session]: List of all sessions, newest first
+
+        Raises:
+            SessionRepositoryError: If query fails
+        """
+        try:
+            async with self.db.acquire() as conn:
+                rows = await conn.fetch(
+                    """
+                    SELECT session_id, user_id, project_name, started_at,
+                           last_updated_at, current_stage, status
+                    FROM sessions
+                    ORDER BY started_at DESC
+                    LIMIT $1 OFFSET $2
+                    """,
+                    limit,
+                    skip,
+                )
+
+                sessions = []
+                for row in rows:
+                    session = Session(
+                        session_id=row["session_id"],
+                        user_id=row["user_id"],
+                        project_name=row["project_name"],
+                        started_at=row["started_at"],
+                        last_updated_at=row["last_updated_at"],
+                        current_stage=row["current_stage"],
+                        stage_data={},  # Load on demand
+                        conversation_history=[],  # Load on demand
+                        status=SessionStatus(row["status"]),
+                        checkpoints=[],  # Load on demand
+                    )
+                    sessions.append(session)
+
+                return sessions
+
+        except Exception as e:
+            logger.error(f"Failed to get all sessions: {e}")
+            raise SessionRepositoryError(f"Failed to retrieve sessions: {e}") from e
+
     async def get_active_sessions(self, user_id: str) -> list[Session]:
         """
         Get all active (in_progress) sessions for a user.

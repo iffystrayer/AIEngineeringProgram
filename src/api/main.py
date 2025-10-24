@@ -312,8 +312,8 @@ async def list_sessions(
         if user_id:
             sessions = await session_repo.get_by_user_id(user_id, limit=limit + skip)
         else:
-            # TODO: Implement get_all_sessions in SessionRepository
-            sessions = []
+            # Get all sessions with pagination
+            sessions = await session_repo.get_all_sessions(limit=limit + skip, skip=skip)
 
         # Filter by status if provided
         if status:
