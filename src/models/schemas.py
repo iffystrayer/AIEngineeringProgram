@@ -769,3 +769,40 @@ class FAIRCompliance:
     overall_maturity: str  # High, Medium, Low
     gaps: list[str] = field(default_factory=list)
     recommendations: list[str] = field(default_factory=list)
+
+
+# ============================================================================
+# AUTHENTICATION & USER MODELS
+# ============================================================================
+
+
+@dataclass
+class User:
+    """User account for authentication and session isolation."""
+
+    user_id: UUID = field(default_factory=uuid4)
+    email: str = ""
+    password_hash: str = ""
+    name: str = ""
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
+
+
+@dataclass
+class TokenData:
+    """JWT token payload data."""
+
+    user_id: str
+    email: str
+    exp: datetime = field(default_factory=lambda: datetime.now() + timedelta(hours=24))
+
+
+@dataclass
+class TokenResponse:
+    """Response from authentication endpoints."""
+
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int = 86400  # 24 hours in seconds
+    user_id: str = ""
+    email: str = ""

@@ -16,6 +16,56 @@ from uuid import UUID
 # ============================================================================
 
 
+class UserRegisterRequest(BaseModel):
+    """Request body for user registration."""
+    email: str = Field(..., description="User email address")
+    password: str = Field(..., min_length=8, description="Password (minimum 8 characters)")
+    name: Optional[str] = Field(None, description="User full name")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "email": "user@example.com",
+                "password": "SecurePass123!",
+                "name": "John Doe"
+            }
+        }
+
+
+class UserLoginRequest(BaseModel):
+    """Request body for user login."""
+    email: str = Field(..., description="User email address")
+    password: str = Field(..., description="User password")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "email": "user@example.com",
+                "password": "SecurePass123!"
+            }
+        }
+
+
+class TokenResponse(BaseModel):
+    """Response model for authentication endpoints."""
+    access_token: str = Field(..., description="JWT access token")
+    token_type: str = Field("bearer", description="Token type")
+    expires_in: int = Field(86400, description="Token expiration in seconds")
+    user_id: str = Field(..., description="User ID")
+    email: str = Field(..., description="User email")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                "token_type": "bearer",
+                "expires_in": 86400,
+                "user_id": "550e8400-e29b-41d4-a716-446655440000",
+                "email": "user@example.com"
+            }
+        }
+
+
 class SessionRequest(BaseModel):
     """Request body for creating a session."""
     user_id: str = Field(..., min_length=1, description="User identifier")
