@@ -9,9 +9,10 @@ Provides REST endpoints for:
 - Health check and metrics
 """
 
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import FastAPI, HTTPException, Query, status, Depends, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
+from fastapi.security import HTTPBearer, HTTPAuthenticationCredentials
 import logging
 import os
 import json
@@ -34,13 +35,18 @@ from src.api.models import (
     CharterResponse,
     HealthCheckResponse,
     ErrorResponse,
+    UserRegisterRequest,
+    UserLoginRequest,
+    TokenResponse,
 )
 from src.database.connection import DatabaseManager, DatabaseConfig
 from src.database.repositories.session_repository import SessionRepository
 from src.database.repositories.stage_data_repository import StageDataRepository
 from src.database.repositories.checkpoint_repository import CheckpointRepository
+from src.database.repositories.user_repository import UserRepository
 from src.agents.orchestrator import Orchestrator
 from src.models.schemas import Session, SessionStatus
+from src.auth.security import hash_password, create_access_token, verify_token
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +90,11 @@ db_manager: Optional[DatabaseManager] = None
 session_repo: Optional[SessionRepository] = None
 stage_data_repo: Optional[StageDataRepository] = None
 checkpoint_repo: Optional[CheckpointRepository] = None
+user_repo: Optional[UserRepository] = None
 orchestrator: Optional[Orchestrator] = None
+
+# Security
+security = HTTPBearer()
 
 # Request tracking
 request_counter = 0
@@ -98,7 +108,7 @@ request_counter = 0
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup."""
-    global db_manager, session_repo, stage_data_repo, checkpoint_repo, orchestrator
+    global db_manager, session_repo, stage_data_repo, checkpoint_repo, user_repo, orchestrator
     try:
         # Initialize database with config from environment
         db_config = DatabaseConfig.from_env()
@@ -110,6 +120,7 @@ async def startup_event():
         session_repo = SessionRepository(db_manager)
         stage_data_repo = StageDataRepository(db_manager)
         checkpoint_repo = CheckpointRepository(db_manager)
+        user_repo = UserRepository(db_manager)
         logger.info("Repositories initialized")
 
         # Initialize orchestrator
@@ -171,6 +182,177 @@ def validate_uuid(uuid_str: str) -> UUID:
                 code="INVALID_UUID",
                 message=f"Invalid session ID format: {uuid_str}",
                 status_code=400,
+            ),
+        )
+
+
+# ============================================================================
+# Authentication Utilities
+# ============================================================================
+
+
+async def get_current_user(credentials: HTTPAuthenticationCredentials = Depends(security)) -> str:
+    """
+    Validate JWT token and return user_id.
+
+    Raises:
+        HTTPException: 401 if token invalid or expired
+    """
+    token = credentials.credentials
+    token_data = verify_token(token)
+
+    if not token_data:
+        raise HTTPException(
+            status_code=401,
+            detail=create_error_response(
+                code="INVALID_TOKEN",
+                message="Invalid or expired token",
+                status_code=401,
+            ),
+        )
+
+    return token_data.get("user_id")
+
+
+# ============================================================================
+# Authentication Endpoints
+# ============================================================================
+
+
+@app.post("/api/v1/auth/register", response_model=TokenResponse, status_code=201)
+async def register(request: UserRegisterRequest) -> Dict[str, Any]:
+    """
+    Register a new user account.
+
+    Args:
+        request: Registration details (email, password, name)
+
+    Returns:
+        TokenResponse with JWT token for immediate login
+
+    Raises:
+        HTTPException: 400 if email already exists, 500 on error
+    """
+    if not user_repo:
+        raise HTTPException(
+            status_code=503,
+            detail=create_error_response(
+                code="SERVICE_UNAVAILABLE",
+                message="Authentication service not initialized",
+                status_code=503,
+            ),
+        )
+
+    try:
+        # Check if email already exists
+        existing_user = await user_repo.get_by_email(request.email)
+        if existing_user:
+            raise HTTPException(
+                status_code=400,
+                detail=create_error_response(
+                    code="EMAIL_EXISTS",
+                    message=f"Email {request.email} already registered",
+                    status_code=400,
+                ),
+            )
+
+        # Hash password and create user
+        password_hash = hash_password(request.password)
+        user = await user_repo.create(
+            email=request.email,
+            password_hash=password_hash,
+            name=request.name or "",
+        )
+
+        # Generate token
+        token = create_access_token(str(user.user_id), user.email)
+
+        logger.info(f"User registered: {request.email}")
+
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "expires_in": 86400,
+            "user_id": str(user.user_id),
+            "email": user.email,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Registration error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=create_error_response(
+                code="REGISTRATION_ERROR",
+                message="Failed to register user",
+                status_code=500,
+            ),
+        )
+
+
+@app.post("/api/v1/auth/login", response_model=TokenResponse)
+async def login(request: UserLoginRequest) -> Dict[str, Any]:
+    """
+    Login with email and password.
+
+    Args:
+        request: Login credentials (email, password)
+
+    Returns:
+        TokenResponse with JWT token
+
+    Raises:
+        HTTPException: 401 if credentials invalid
+    """
+    if not user_repo:
+        raise HTTPException(
+            status_code=503,
+            detail=create_error_response(
+                code="SERVICE_UNAVAILABLE",
+                message="Authentication service not initialized",
+                status_code=503,
+            ),
+        )
+
+    try:
+        # Verify credentials
+        user = await user_repo.verify_credentials(request.email, request.password)
+
+        if not user:
+            logger.warning(f"Failed login attempt: {request.email}")
+            raise HTTPException(
+                status_code=401,
+                detail=create_error_response(
+                    code="INVALID_CREDENTIALS",
+                    message="Invalid email or password",
+                    status_code=401,
+                ),
+            )
+
+        # Generate token
+        token = create_access_token(str(user.user_id), user.email)
+
+        logger.info(f"User logged in: {request.email}")
+
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "expires_in": 86400,
+            "user_id": str(user.user_id),
+            "email": user.email,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Login error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=create_error_response(
+                code="LOGIN_ERROR",
+                message="Failed to login",
+                status_code=500,
             ),
         )
 
