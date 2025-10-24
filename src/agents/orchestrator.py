@@ -881,7 +881,7 @@ class Orchestrator:
             return None
 
         try:
-            session = await self.session_repo.get(session_id)
+            session = await self.session_repo.get_by_id(session_id)
             if session:
                 logger.info(f"Loaded session {session_id} from database")
             return session
