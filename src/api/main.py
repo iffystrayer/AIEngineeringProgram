@@ -35,7 +35,7 @@ from src.api.models import (
     HealthCheckResponse,
     ErrorResponse,
 )
-from src.database.connection import DatabaseManager
+from src.database.connection import DatabaseManager, DatabaseConfig
 from src.database.repositories.session_repository import SessionRepository
 from src.database.repositories.stage_data_repository import StageDataRepository
 from src.database.repositories.checkpoint_repository import CheckpointRepository
@@ -100,8 +100,9 @@ async def startup_event():
     """Initialize services on startup."""
     global db_manager, session_repo, stage_data_repo, checkpoint_repo, orchestrator
     try:
-        # Initialize database
-        db_manager = DatabaseManager()
+        # Initialize database with config from environment
+        db_config = DatabaseConfig.from_env()
+        db_manager = DatabaseManager(db_config)
         await db_manager.initialize()
         logger.info("Database initialized")
 
