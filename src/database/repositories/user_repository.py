@@ -71,7 +71,7 @@ class UserRepository:
                     INSERT INTO users (user_id, email, password_hash, name, created_at, updated_at)
                     VALUES ($1, $2, $3, $4, $5, $6)
                     """,
-                    new_user.user_id,
+                    str(new_user.user_id),
                     email,
                     password_hash,
                     name,

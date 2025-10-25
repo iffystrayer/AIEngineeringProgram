@@ -7,10 +7,9 @@ Provides JWT token generation, validation, and password hashing for user authent
 import logging
 from datetime import datetime, timedelta
 from typing import Optional
-from uuid import UUID
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 logger = logging.getLogger(__name__)
 
@@ -19,12 +18,9 @@ SECRET_KEY = "your-secret-key-change-in-production"  # TODO: Load from environme
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24
 
-# Password hashing configuration
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 class PasswordManager:
-    """Manages password hashing and verification."""
+    """Manages password hashing and verification using bcrypt."""
 
     @staticmethod
     def hash_password(password: str) -> str:
@@ -37,7 +33,13 @@ class PasswordManager:
         Returns:
             str: Hashed password
         """
-        return pwd_context.hash(password)
+        # Bcrypt requires bytes
+        password_bytes = password.encode('utf-8')
+        # Generate salt and hash
+        salt = bcrypt.gensalt(rounds=12)
+        hashed = bcrypt.hashpw(password_bytes, salt)
+        # Return as string
+        return hashed.decode('utf-8')
 
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -51,7 +53,13 @@ class PasswordManager:
         Returns:
             bool: True if passwords match, False otherwise
         """
-        return pwd_context.verify(plain_password, hashed_password)
+        try:
+            plain_bytes = plain_password.encode('utf-8')
+            hashed_bytes = hashed_password.encode('utf-8')
+            return bcrypt.checkpw(plain_bytes, hashed_bytes)
+        except Exception as e:
+            logger.error(f"Password verification error: {e}")
+            return False
 
 
 class TokenManager:

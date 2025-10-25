@@ -37,6 +37,7 @@ RUN python -m venv /app/.venv && \
         pydantic-settings>=2.1.0 \
         anthropic>=0.18.0 \
         python-jose[cryptography]>=3.3.0 \
+        bcrypt>=4.1.0 \
         passlib[bcrypt]>=1.7.4 \
         pyyaml>=6.0 \
         python-dotenv>=1.0.0 \
