@@ -12,7 +12,7 @@ Provides REST endpoints for:
 from fastapi import FastAPI, HTTPException, Query, status, Depends, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
-from fastapi.security import HTTPBearer, HTTPAuthenticationCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import logging
 import os
 import json
@@ -191,7 +191,7 @@ def validate_uuid(uuid_str: str) -> UUID:
 # ============================================================================
 
 
-async def get_current_user(credentials: HTTPAuthenticationCredentials = Depends(security)) -> str:
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
     """
     Validate JWT token and return user_id.
 

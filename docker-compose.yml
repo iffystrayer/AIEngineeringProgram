@@ -42,6 +42,69 @@ services:
       - "com.uaip.version=1.0.0"
 
   # ============================================================================
+  # U-AIP API Server
+  # ============================================================================
+  uaip-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+
+    container_name: uaip-api
+    restart: unless-stopped
+
+    environment:
+      # Database configuration
+      DB_HOST: uaip-db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-uaip_scoping}
+      DB_USER: ${DB_USER:-uaip_user}
+      DB_PASSWORD: ${DB_PASSWORD:-changeme}
+      DB_MIN_POOL_SIZE: ${DB_MIN_POOL_SIZE:-2}
+      DB_MAX_POOL_SIZE: ${DB_MAX_POOL_SIZE:-10}
+
+      # Application configuration
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+
+      # Python configuration
+      PYTHONUNBUFFERED: 1
+      PYTHONDONTWRITEBYTECODE: 1
+
+    ports:
+      - "38937:8000"
+
+    volumes:
+      # Persistent data
+      - uaip-api-data:/app/data
+      - uaip-api-logs:/app/logs
+
+      # Mount source code in development
+      - ./src:/app/src
+      - ./migrations:/app/migrations
+      - ./alembic.ini:/app/alembic.ini
+
+    depends_on:
+      uaip-db:
+        condition: service_healthy
+
+    networks:
+      - uaip-network
+
+    command: ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    labels:
+      - "com.uaip.service=api"
+      - "com.uaip.version=1.0.0"
+
+  # ============================================================================
   # U-AIP Application (CLI)
   # ============================================================================
   uaip-app:
@@ -111,6 +174,14 @@ networks:
 volumes:
   uaip-db-data:
     name: uaip-db-data
+    driver: local
+
+  uaip-api-data:
+    name: uaip-api-data
+    driver: local
+
+  uaip-api-logs:
+    name: uaip-api-logs
     driver: local
 
   uaip-app-data:

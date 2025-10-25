@@ -19,9 +19,10 @@ depends_on = None
 
 def upgrade() -> None:
     """Create users table for authentication."""
+    # Create users table matching sessions.user_id type (VARCHAR)
     op.create_table(
         "users",
-        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False, server_default=sa.text("uuid_generate_v4()")),
+        sa.Column("user_id", sa.String(255), nullable=False),
         sa.Column("email", sa.String(255), nullable=False, unique=True),
         sa.Column("password_hash", sa.String(255), nullable=False),
         sa.Column("name", sa.String(255), nullable=True),
@@ -30,43 +31,17 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("user_id"),
     )
 
-    # Create indexes
+    # Create indexes for performance
     op.create_index("idx_users_email", "users", ["email"], unique=True)
     op.create_index("idx_users_created_at", "users", [sa.text("created_at DESC")])
 
-    # Add user_id foreign key to sessions table if not exists
-    try:
-        op.add_column(
-            "sessions",
-            sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=True),
-        )
-        op.create_foreign_key(
-            "fk_sessions_user_id",
-            "sessions",
-            "users",
-            ["user_id"],
-            ["user_id"],
-            ondelete="CASCADE",
-        )
-    except Exception:
-        # Column may already exist
-        pass
+    # Note: sessions table already has user_id column from init.sql
+    # Skip creating FK for now due to existing sessions data
+    # Will be addressed in next migration if needed
 
 
 def downgrade() -> None:
-    """Drop users table and related constraints."""
-    # Drop foreign key first
-    try:
-        op.drop_constraint("fk_sessions_user_id", "sessions", type_="foreignkey")
-    except Exception:
-        pass
-
-    # Drop user_id column from sessions if it exists
-    try:
-        op.drop_column("sessions", "user_id")
-    except Exception:
-        pass
-
+    """Drop users table and related indexes."""
     # Drop indexes
     op.drop_index("idx_users_created_at", table_name="users")
     op.drop_index("idx_users_email", table_name="users")
