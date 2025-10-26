@@ -49,7 +49,8 @@ RUN python -m venv /app/.venv && \
         markdown-it-py>=3.0.0 \
         weasyprint>=60.2 \
         python-multipart>=0.0.6 \
-        alembic>=1.13.0
+        alembic>=1.13.0 \
+        slowapi>=0.1.9
 
 # ==============================================================================
 # Stage 2: Runtime - Minimal production image
@@ -95,7 +96,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/api/v1/health || exit 1
 
 # Default command (can be overridden)
-CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/app/.venv/bin/uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 # ==============================================================================
 # Labels for metadata

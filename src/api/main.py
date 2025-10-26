@@ -9,10 +9,13 @@ Provides REST endpoints for:
 - Health check and metrics
 """
 
-from fastapi import FastAPI, HTTPException, Query, status, Depends, Form
+from fastapi import FastAPI, HTTPException, Query, status, Depends, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 import logging
 import os
 import json
@@ -80,6 +83,28 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
 )
+
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
+
+async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
+    """Handle rate limit exceeded exceptions."""
+    return Response(
+        status_code=429,
+        content=json.dumps({
+            "error": {
+                "code": "RATE_LIMIT_EXCEEDED",
+                "message": "Too many requests. Please try again later.",
+                "details": str(exc.detail),
+            }
+        }),
+        media_type="application/json",
+    )
+
+
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 # ============================================================================
 # Global State
@@ -220,7 +245,8 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
 
 @app.post("/api/v1/auth/register", response_model=TokenResponse, status_code=201)
-async def register(request: UserRegisterRequest) -> Dict[str, Any]:
+@limiter.limit("5 per hour")
+async def register(request: Request, body: UserRegisterRequest) -> Dict[str, Any]:
     """
     Register a new user account.
 
@@ -245,29 +271,29 @@ async def register(request: UserRegisterRequest) -> Dict[str, Any]:
 
     try:
         # Check if email already exists
-        existing_user = await user_repo.get_by_email(request.email)
+        existing_user = await user_repo.get_by_email(body.email)
         if existing_user:
             raise HTTPException(
                 status_code=400,
                 detail=create_error_response(
                     code="EMAIL_EXISTS",
-                    message=f"Email {request.email} already registered",
+                    message=f"Email {body.email} already registered",
                     status_code=400,
                 ),
             )
 
         # Hash password and create user
-        password_hash = hash_password(request.password)
+        password_hash = hash_password(body.password)
         user = await user_repo.create(
-            email=request.email,
+            email=body.email,
             password_hash=password_hash,
-            name=request.name or "",
+            name=body.name or "",
         )
 
         # Generate token
         token = create_access_token(str(user.user_id), user.email)
 
-        logger.info(f"User registered: {request.email}")
+        logger.info(f"User registered: {body.email}")
 
         return {
             "access_token": token,
@@ -292,7 +318,8 @@ async def register(request: UserRegisterRequest) -> Dict[str, Any]:
 
 
 @app.post("/api/v1/auth/login", response_model=TokenResponse)
-async def login(request: UserLoginRequest) -> Dict[str, Any]:
+@limiter.limit("10 per hour")
+async def login(request: Request, body: UserLoginRequest) -> Dict[str, Any]:
     """
     Login with email and password.
 
@@ -317,10 +344,10 @@ async def login(request: UserLoginRequest) -> Dict[str, Any]:
 
     try:
         # Verify credentials
-        user = await user_repo.verify_credentials(request.email, request.password)
+        user = await user_repo.verify_credentials(body.email, body.password)
 
         if not user:
-            logger.warning(f"Failed login attempt: {request.email}")
+            logger.warning(f"Failed login attempt: {body.email}")
             raise HTTPException(
                 status_code=401,
                 detail=create_error_response(
@@ -333,7 +360,7 @@ async def login(request: UserLoginRequest) -> Dict[str, Any]:
         # Generate token
         token = create_access_token(str(user.user_id), user.email)
 
-        logger.info(f"User logged in: {request.email}")
+        logger.info(f"User logged in: {body.email}")
 
         return {
             "access_token": token,
@@ -363,7 +390,8 @@ async def login(request: UserLoginRequest) -> Dict[str, Any]:
 
 
 @app.post("/api/v1/sessions", response_model=SessionResponse, status_code=201)
-async def create_session(request: SessionRequest) -> Dict[str, Any]:
+@limiter.limit("100 per hour")
+async def create_session(request: Request, body: SessionRequest) -> Dict[str, Any]:
     """
     Create a new AI project scoping session.
 
@@ -381,9 +409,9 @@ async def create_session(request: SessionRequest) -> Dict[str, Any]:
 
     try:
         # Create session via orchestrator
-        session = await orchestrator.create_session(request.user_id, request.project_name)
+        session = await orchestrator.create_session(body.user_id, body.project_name)
 
-        logger.info(f"Created session {session.session_id} for user {request.user_id}")
+        logger.info(f"Created session {session.session_id} for user {body.user_id}")
 
         return {
             "session_id": str(session.session_id),
@@ -409,7 +437,8 @@ async def create_session(request: SessionRequest) -> Dict[str, Any]:
 
 
 @app.get("/api/v1/sessions/{session_id}", response_model=SessionResponse)
-async def get_session(session_id: str) -> Dict[str, Any]:
+@limiter.limit("100 per hour")
+async def get_session(request: Request, session_id: str) -> Dict[str, Any]:
     """
     Get session details.
 
@@ -473,7 +502,9 @@ async def get_session(session_id: str) -> Dict[str, Any]:
 
 
 @app.get("/api/v1/sessions", response_model=SessionListResponse)
+@limiter.limit("100 per hour")
 async def list_sessions(
+    request: Request,
     user_id: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
@@ -541,7 +572,9 @@ async def list_sessions(
 
 
 @app.post("/api/v1/sessions/{session_id}/stages/{stage_number}/execute", response_model=StageExecutionResponse)
+@limiter.limit("50 per hour")
 async def execute_stage(
+    req: Request,
     session_id: str,
     stage_number: int,
     request: Optional[StageExecutionRequest] = None,
@@ -632,7 +665,9 @@ async def execute_stage(
 
 
 @app.post("/api/v1/sessions/{session_id}/stages/{stage_number}/advance", response_model=AdvancementResponse)
+@limiter.limit("50 per hour")
 async def advance_stage(
+    request: Request,
     session_id: str,
     stage_number: int,
 ) -> Dict[str, Any]:
@@ -716,7 +751,8 @@ async def advance_stage(
 
 
 @app.get("/api/v1/sessions/{session_id}/stages", response_model=StagesStatusResponse)
-async def get_stages_status(session_id: str) -> Dict[str, Any]:
+@limiter.limit("100 per hour")
+async def get_stages_status(request: Request, session_id: str) -> Dict[str, Any]:
     """
     Get status of all stages for a session.
 
@@ -787,7 +823,8 @@ async def get_stages_status(session_id: str) -> Dict[str, Any]:
 
 
 @app.get("/api/v1/sessions/{session_id}/consistency", response_model=ConsistencyResponse)
-async def check_consistency(session_id: str) -> Dict[str, Any]:
+@limiter.limit("50 per hour")
+async def check_consistency(request: Request, session_id: str) -> Dict[str, Any]:
     """
     Check cross-stage consistency.
 
@@ -855,7 +892,9 @@ async def check_consistency(session_id: str) -> Dict[str, Any]:
 
 
 @app.post("/api/v1/sessions/{session_id}/charter/generate", response_model=CharterResponse)
+@limiter.limit("20 per hour")
 async def generate_charter(
+    req: Request,
     session_id: str,
     request: Optional[CharterGenerationRequest] = None,
 ) -> Dict[str, Any]:
