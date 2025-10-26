@@ -264,8 +264,8 @@ class Orchestrator:
                 session_id=uuid4(),
                 user_id=user_id,
                 project_name=project_name,
-                started_at=datetime.now(UTC),
-                last_updated_at=datetime.now(UTC),
+                started_at=datetime.utcnow(),
+                last_updated_at=datetime.utcnow(),
                 current_stage=1,
                 stage_data={},
                 conversation_history=[],
@@ -386,7 +386,7 @@ class Orchestrator:
         async with lock:
             # Store stage output in session
             session.stage_data[stage_number] = stage_output
-            session.last_updated_at = datetime.now(UTC)
+            session.last_updated_at = datetime.utcnow()
 
             logger.info(
                 f"Stage {stage_number} completed for session {session.session_id}. "
@@ -442,7 +442,7 @@ class Orchestrator:
         lock = self._get_session_lock(session.session_id)
         async with lock:
             session.current_stage += 1
-            session.last_updated_at = datetime.now(UTC)
+            session.last_updated_at = datetime.utcnow()
 
             # Mark as completed if past stage 5
             if session.current_stage > 5:
@@ -749,7 +749,7 @@ class Orchestrator:
             session_id=session.session_id,
             project_name=session.project_name,
             created_at=session.started_at,
-            completed_at=datetime.now(UTC),
+            completed_at=datetime.utcnow(),
             problem_statement=problem_statement,
             metric_alignment_matrix=metric_alignment,
             data_quality_scorecard=data_quality,
@@ -792,7 +792,7 @@ class Orchestrator:
         async with lock:
             checkpoint = Checkpoint(
                 stage_number=stage_number,
-                timestamp=datetime.now(UTC),
+                timestamp=datetime.utcnow(),
                 data_snapshot={
                     "stage_data": session.stage_data.copy(),
                     "conversation_history": [

@@ -148,8 +148,8 @@ async def startup_event():
         user_repo = UserRepository(db_manager)
         logger.info("Repositories initialized")
 
-        # Initialize orchestrator
-        orchestrator = Orchestrator(db_manager)
+        # Initialize orchestrator - pass db_manager as both db_pool and db_manager
+        orchestrator = Orchestrator(db_pool=db_manager, db_manager=db_manager)
         logger.info("Orchestrator initialized")
 
     except Exception as e:
