@@ -3,16 +3,22 @@ Stage Data Repository
 
 Provides CRUD operations for stage data storage.
 Handles JSONB serialization for complex stage deliverables.
+Supports encryption at rest (NFR-5.1) for sensitive data.
 """
 
 import json
 import logging
+import os
 from typing import Any, Optional
 from uuid import UUID
 
 from src.database.connection import DatabaseManager
+from src.auth.encryption import get_encryptor, EncryptionError
 
 logger = logging.getLogger(__name__)
+
+# Feature flag for encryption (can be toggled via environment variable)
+ENCRYPTION_ENABLED = os.environ.get("ENCRYPTION_ENABLED", "false").lower() == "true"
 
 
 class StageDataRepositoryError(Exception):
@@ -27,6 +33,7 @@ class StageDataRepository:
 
     Manages storage of structured responses for each of the 5 stages,
     with JSONB support for complex data structures.
+    Supports encryption at rest (NFR-5.1) for sensitive data.
     """
 
     def __init__(self, db_manager: DatabaseManager) -> None:
@@ -37,6 +44,48 @@ class StageDataRepository:
             db_manager: Initialized DatabaseManager instance
         """
         self.db = db_manager
+        self.encryptor = get_encryptor() if ENCRYPTION_ENABLED else None
+
+    def _should_encrypt(self) -> bool:
+        """Check if encryption is enabled."""
+        return ENCRYPTION_ENABLED and self.encryptor is not None
+
+    def _encrypt_value(self, value: Any) -> tuple[str, str]:
+        """
+        Encrypt a value if encryption is enabled.
+
+        Returns:
+            Tuple of (encrypted_value, json_value) where:
+            - encrypted_value: Encrypted string (or empty if not encrypted)
+            - json_value: JSON string for unencrypted storage
+        """
+        json_value = json.dumps(value, default=str)
+
+        if self._should_encrypt():
+            try:
+                encrypted_value = self.encryptor.encrypt_dict({"value": value})
+                return encrypted_value, json_value
+            except EncryptionError as e:
+                logger.warning(f"Encryption failed, storing unencrypted: {e}")
+                return "", json_value
+        return "", json_value
+
+    def _decrypt_value(self, encrypted_value: str, json_value: str, is_encrypted: bool) -> Any:
+        """
+        Decrypt a value if it's encrypted, otherwise deserialize JSON.
+
+        Returns:
+            Decrypted/deserialized value
+        """
+        if is_encrypted and self._should_encrypt():
+            try:
+                decrypted = self.encryptor.decrypt_dict(encrypted_value)
+                return decrypted.get("value")
+            except EncryptionError as e:
+                logger.error(f"Decryption failed: {e}")
+                # Fallback to JSON deserialization
+                return json.loads(json_value)
+        return json.loads(json_value)
 
     # ========================================================================
     # SAVE OPERATIONS (CREATE/UPDATE - UPSERT pattern)
@@ -57,7 +106,7 @@ class StageDataRepository:
             session_id: Session UUID
             stage_number: Stage number (1-5)
             field_name: Name of the field
-            field_value: Value to store (will be JSON serialized)
+            field_value: Value to store (will be JSON serialized and optionally encrypted)
             quality_score: Optional quality score (0-10)
 
         Raises:
@@ -71,32 +120,61 @@ class StageDataRepository:
             raise ValueError(f"quality_score must be 0-10, got {quality_score}")
 
         try:
-            # Serialize value to JSON
-            json_value = json.dumps(field_value, default=str)
+            # Encrypt or serialize value
+            encrypted_value, json_value = self._encrypt_value(field_value)
+            is_encrypted = bool(encrypted_value)
 
             async with self.db.transaction() as conn:
                 # UPSERT: Insert or update on conflict
-                await conn.execute(
-                    """
-                    INSERT INTO stage_data (
-                        session_id, stage_number, field_name,
-                        field_value, quality_score
-                    ) VALUES ($1, $2, $3, $4, $5)
-                    ON CONFLICT (session_id, stage_number, field_name)
-                    DO UPDATE SET
-                        field_value = EXCLUDED.field_value,
-                        quality_score = EXCLUDED.quality_score,
-                        updated_at = CURRENT_TIMESTAMP
-                    """,
-                    session_id,
-                    stage_number,
-                    field_name,
-                    json_value,
-                    quality_score,
-                )
+                # If encryption is enabled, store in encrypted_value column
+                if is_encrypted:
+                    await conn.execute(
+                        """
+                        INSERT INTO stage_data (
+                            session_id, stage_number, field_name,
+                            field_value, encrypted_value, encrypted, quality_score
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                        ON CONFLICT (session_id, stage_number, field_name)
+                        DO UPDATE SET
+                            encrypted_value = EXCLUDED.encrypted_value,
+                            encrypted = EXCLUDED.encrypted,
+                            quality_score = EXCLUDED.quality_score,
+                            updated_at = CURRENT_TIMESTAMP
+                        """,
+                        session_id,
+                        stage_number,
+                        field_name,
+                        json_value,  # Keep JSON for fallback
+                        encrypted_value,
+                        is_encrypted,
+                        quality_score,
+                    )
+                else:
+                    # Store unencrypted in field_value column
+                    await conn.execute(
+                        """
+                        INSERT INTO stage_data (
+                            session_id, stage_number, field_name,
+                            field_value, encrypted, quality_score
+                        ) VALUES ($1, $2, $3, $4, $5, $6)
+                        ON CONFLICT (session_id, stage_number, field_name)
+                        DO UPDATE SET
+                            field_value = EXCLUDED.field_value,
+                            encrypted = EXCLUDED.encrypted,
+                            quality_score = EXCLUDED.quality_score,
+                            updated_at = CURRENT_TIMESTAMP
+                        """,
+                        session_id,
+                        stage_number,
+                        field_name,
+                        json_value,
+                        is_encrypted,
+                        quality_score,
+                    )
 
                 logger.info(
-                    f"Saved field '{field_name}' for session {session_id}, stage {stage_number}"
+                    f"Saved field '{field_name}' for session {session_id}, stage {stage_number} "
+                    f"(encrypted={is_encrypted})"
                 )
 
         except ValueError:
@@ -163,13 +241,15 @@ class StageDataRepository:
         """
         Retrieve a specific field value.
 
+        Handles both encrypted and unencrypted data automatically.
+
         Args:
             session_id: Session UUID
             stage_number: Stage number (1-5)
             field_name: Name of the field
 
         Returns:
-            Optional[Any]: Deserialized field value or None if not found
+            Optional[Any]: Deserialized/decrypted field value or None if not found
 
         Raises:
             StageDataRepositoryError: If retrieval fails
@@ -178,7 +258,7 @@ class StageDataRepository:
             async with self.db.acquire() as conn:
                 row = await conn.fetchrow(
                     """
-                    SELECT field_value
+                    SELECT field_value, encrypted_value, encrypted
                     FROM stage_data
                     WHERE session_id = $1
                       AND stage_number = $2
@@ -192,8 +272,13 @@ class StageDataRepository:
                 if row is None:
                     return None
 
-                # Deserialize JSON value
-                return json.loads(row["field_value"])
+                # Decrypt if needed, otherwise deserialize JSON
+                is_encrypted = row["encrypted"] if "encrypted" in row else False
+                return self._decrypt_value(
+                    row.get("encrypted_value", ""),
+                    row["field_value"],
+                    is_encrypted
+                )
 
         except Exception as e:
             logger.error(f"Failed to get field '{field_name}': {e}")
@@ -202,6 +287,8 @@ class StageDataRepository:
     async def get_stage_data(self, session_id: UUID, stage_number: int) -> dict[str, Any]:
         """
         Retrieve all field data for a specific stage.
+
+        Handles both encrypted and unencrypted data automatically.
 
         Args:
             session_id: Session UUID
@@ -217,7 +304,7 @@ class StageDataRepository:
             async with self.db.acquire() as conn:
                 rows = await conn.fetch(
                     """
-                    SELECT field_name, field_value
+                    SELECT field_name, field_value, encrypted_value, encrypted
                     FROM stage_data
                     WHERE session_id = $1 AND stage_number = $2
                     ORDER BY created_at ASC
@@ -228,7 +315,13 @@ class StageDataRepository:
 
                 stage_data = {}
                 for row in rows:
-                    stage_data[row["field_name"]] = json.loads(row["field_value"])
+                    is_encrypted = row.get("encrypted", False)
+                    value = self._decrypt_value(
+                        row.get("encrypted_value", ""),
+                        row["field_value"],
+                        is_encrypted
+                    )
+                    stage_data[row["field_name"]] = value
 
                 return stage_data
 
@@ -239,6 +332,8 @@ class StageDataRepository:
     async def get_all_stage_data(self, session_id: UUID) -> dict[int, dict[str, Any]]:
         """
         Retrieve all stage data for a session.
+
+        Handles both encrypted and unencrypted data automatically.
 
         Args:
             session_id: Session UUID
@@ -253,7 +348,7 @@ class StageDataRepository:
             async with self.db.acquire() as conn:
                 rows = await conn.fetch(
                     """
-                    SELECT stage_number, field_name, field_value
+                    SELECT stage_number, field_name, field_value, encrypted_value, encrypted
                     FROM stage_data
                     WHERE session_id = $1
                     ORDER BY stage_number ASC, created_at ASC
@@ -266,7 +361,14 @@ class StageDataRepository:
                     stage_num = row["stage_number"]
                     if stage_num not in all_data:
                         all_data[stage_num] = {}
-                    all_data[stage_num][row["field_name"]] = json.loads(row["field_value"])
+
+                    is_encrypted = row.get("encrypted", False)
+                    value = self._decrypt_value(
+                        row.get("encrypted_value", ""),
+                        row["field_value"],
+                        is_encrypted
+                    )
+                    all_data[stage_num][row["field_name"]] = value
 
                 return all_data
 
