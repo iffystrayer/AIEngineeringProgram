@@ -39,6 +39,7 @@ RUN python -m venv /app/.venv && \
         python-jose[cryptography]>=3.3.0 \
         bcrypt>=4.1.0 \
         passlib[bcrypt]>=1.7.4 \
+        cryptography>=41.0.0 \
         pyyaml>=6.0 \
         python-dotenv>=1.0.0 \
         rich>=13.7.0 \
