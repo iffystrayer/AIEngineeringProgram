@@ -1,119 +1,34 @@
-# Archive Directory
+# Archive Folder
 
-This directory contains archived files that are not required to run the application. These files include:
+This folder contains session notes, audit reports, and other documentation from development phases.
 
 ## Contents
 
-### Status & Report Documents (100+ files)
-- Phase completion reports
-- Audit reports and summaries
-- Implementation status documents
-- Test reports and assessments
-- Progress summaries
-- Planning documents
-- Architecture documentation
-- Integration reports
+### session_notes/
+- P2A_BLOCKERS_FIXED.md - Session notes on fixing session persistence bugs
+- P2_PROGRESS_SUMMARY.md - Overall progress summary for Phase 2
+- SESSION_FINAL_SUMMARY.md - Final session completion notes
 
-### Test & Development Files
-- Test output logs
-- Coverage reports (htmlcov/)
-- Temporary test scripts
-- Demo workflow files
-- E2E test output files
+### audit_reports/
+- AUDIT_REPORT.md - Initial brutal truth assessment
+- COMPREHENSIVE_AUDIT_REPORT_2025.md - Detailed code review audit
+- AUDIT_COMPARISON_ANALYSIS.md - Before/after audit comparison
 
-### Logs
-- Application logs
-- Build logs
-- Test execution logs
+## Purpose
 
-## Why These Files Are Archived
+These files document the development process and intermediate states. They are kept for:
+- Historical reference
+- Audit trail
+- Learning and knowledge base
 
-These files were created during development and testing phases to:
-- Track progress and status
-- Document decisions and findings
-- Report on test results
-- Plan implementation phases
-- Verify compliance with specifications
+## Note
 
-They are not required for:
-- Running the application
-- Building the project
-- Deploying to production
-- Core functionality
+The current project status is documented in:
+- PROJECT_STATUS.md - Current project status
+- USER_TUTORIAL.md - User guide
+- ADMIN_GUIDE.md - Administrator guide
 
-## Accessing Archived Files
-
-If you need to reference any archived files:
-
-```bash
-# List all archived files
-ls -la archive/
-
-# Search for a specific file
-find archive -name "*filename*"
-
-# View a specific file
-cat archive/FILENAME.md
-```
-
-## Restoring Files
-
-To restore a file from the archive:
-
-```bash
-# Move file back to root
-mv archive/FILENAME.md ./
-
-# Or copy if you want to keep the archive version
-cp archive/FILENAME.md ./
-```
-
-## Archive Statistics
-
-- **Total Files:** 178
-- **Total Size:** ~3.7 MB
-- **Categories:** Status reports, test files, logs, coverage reports
-
-## Essential Files (Not Archived)
-
-The following files are kept in the root directory as they are essential:
-
-### Configuration
-- `pyproject.toml` - Project dependencies and configuration
-- `uv.lock` - Dependency lock file
-- `.env` - Environment variables
-- `.env.example` - Example environment configuration
-
-### Deployment
-- `Dockerfile` - Container image definition
-- `docker-compose.yml` - Multi-container setup
-- `Makefile` - Build automation
-
-### Documentation
-- `README.md` - Main project documentation
-- `DOCKER.md` - Docker setup guide
-- `install.sh` - Installation script
-
-### Source Code
-- `src/` - Application source code
-- `tests/` - Test suite
-- `frontend/` - Frontend application
-- `config/` - Configuration files
-- `database/` - Database setup
-- `scripts/` - Utility scripts
-- `docs/` - Documentation
-- `templates/` - Application templates
-- `examples/` - Usage examples
-- `security/` - Security configurations
-- `charters/` - Generated project charters
-
-## Cleanup Date
-
-**Date:** October 22, 2025  
-**Files Archived:** 178  
-**Space Freed:** ~3.7 MB
+These files in the root directory are the authoritative documentation.
 
 ---
-
-For questions about archived files, refer to the git history or contact the development team.
-
+**Last Updated:** October 26, 2025
