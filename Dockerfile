@@ -1,42 +1,38 @@
 # ==============================================================================
 # U-AIP Scoping Assistant - Dockerfile
-# Multi-stage build for optimized production image
+# Multi-stage build for optimized production image with deterministic builds
 # ==============================================================================
 
 # ==============================================================================
-# Stage 1: Builder - Install dependencies
+# Stage 1: Builder - Install dependencies using uv and lockfile
 # ==============================================================================
 FROM python:3.11-slim AS builder
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    UV_SYSTEM_PYTHON=1
 
-# Install system dependencies
+# Install system dependencies and uv
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     git \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Add uv to PATH
+ENV PATH="/root/.cargo/bin:$PATH"
 
 # Set working directory
 WORKDIR /app
 
-# Copy dependency files
-COPY pyproject.toml ./
+# Copy dependency files (IMPORTANT: uv.lock MUST be copied for deterministic builds)
+COPY pyproject.toml uv.lock ./
 
-# Create virtual environment and install dependencies
-RUN python -m venv /app/.venv && \
-    /app/.venv/bin/pip install --upgrade pip setuptools wheel && \
-    /app/.venv/bin/pip install \
-        anthropic \
-        asyncpg \
-        rich \
-        click \
-        python-dotenv \
-        structlog
+# Install dependencies using lockfile (deterministic, reproducible builds)
+# --frozen ensures exact versions from lockfile, no resolution
+RUN uv pip install --system -r pyproject.toml --frozen
 
 # ==============================================================================
 # Stage 2: Runtime - Minimal production image
@@ -46,7 +42,6 @@ FROM python:3.11-slim AS runtime
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH="/app:$PYTHONPATH"
 
 # Install runtime system dependencies
@@ -63,12 +58,15 @@ RUN useradd -m -u 1000 -s /bin/bash uaip && \
 # Set working directory
 WORKDIR /app
 
-# Copy virtual environment from builder
-COPY --from=builder --chown=uaip:uaip /app/.venv /app/.venv
+# Copy Python packages from builder (installed to system Python)
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY --chown=uaip:uaip src/ /app/src/
 COPY --chown=uaip:uaip database/ /app/database/
+COPY --chown=uaip:uaip migrations/ /app/migrations/
+COPY --chown=uaip:uaip alembic.ini /app/
 COPY --chown=uaip:uaip pyproject.toml /app/
 
 # Switch to non-root user
@@ -86,5 +84,5 @@ CMD ["python", "-m", "src.cli.main", "--help"]
 # ==============================================================================
 LABEL maintainer="U-AIP Team" \
       version="1.0.0-dev" \
-      description="Universal AI Project Scoping Assistant" \
+      description="Universal AI Project Scoping Assistant - Deterministic builds with uv.lock" \
       org.opencontainers.image.source="https://github.com/yourusername/uaip-scoping-assistant"
