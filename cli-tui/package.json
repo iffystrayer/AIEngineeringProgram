@@ -1,0 +1,46 @@
+{
+  "name": "uaip-tui",
+  "version": "1.0.0",
+  "description": "Beautiful Terminal UI for U-AIP Scoping Assistant using Ink + React + TypeScript",
+  "main": "dist/index.js",
+  "bin": {
+    "uaip": "./dist/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.tsx",
+    "build": "tsc && chmod +x dist/index.js",
+    "start": "node dist/index.js",
+    "test": "vitest",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [
+    "cli",
+    "tui",
+    "ai",
+    "project-charter",
+    "ink",
+    "react"
+  ],
+  "author": "U-AIP Team",
+  "license": "MIT",
+  "dependencies": {
+    "ink": "^5.0.1",
+    "react": "^19.0.0",
+    "zustand": "^5.0.2",
+    "axios": "^1.7.9",
+    "ink-text-input": "^6.0.0",
+    "ink-spinner": "^5.0.0",
+    "chalk": "^5.4.1",
+    "figures": "^6.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.6",
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "tsx": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
