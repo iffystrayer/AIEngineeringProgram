@@ -5,10 +5,11 @@ Provides type-safe request/response validation and serialization
 for all REST API endpoints.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr, validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from uuid import UUID
+import re
 
 
 # ============================================================================
@@ -18,9 +19,29 @@ from uuid import UUID
 
 class UserRegisterRequest(BaseModel):
     """Request body for user registration."""
-    email: str = Field(..., description="User email address")
-    password: str = Field(..., min_length=8, description="Password (minimum 8 characters)")
-    name: Optional[str] = Field(None, description="User full name")
+    email: EmailStr = Field(..., description="User email address")
+    password: str = Field(..., min_length=8, description="Password (minimum 8 characters, must contain uppercase, lowercase, digit, and special char)")
+    name: Optional[str] = Field(None, min_length=1, max_length=255, description="User full name")
+
+    @validator('password')
+    def validate_password_complexity(cls, v):
+        """Enforce password complexity requirements."""
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not re.search(r'[a-z]', v):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not re.search(r'\d', v):
+            raise ValueError('Password must contain at least one digit')
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>\-_=+]', v):
+            raise ValueError('Password must contain at least one special character (!@#$%^&*...)')
+        return v
+
+    @validator('name')
+    def validate_name(cls, v):
+        """Ensure name doesn't contain suspicious characters."""
+        if v and re.search(r'[<>"\'\&;]', v):
+            raise ValueError('Name contains invalid characters')
+        return v.strip() if v else v
 
     class Config:
         schema_extra = {
@@ -68,9 +89,30 @@ class TokenResponse(BaseModel):
 
 class SessionRequest(BaseModel):
     """Request body for creating a session."""
-    user_id: str = Field(..., min_length=1, description="User identifier")
-    project_name: str = Field(..., min_length=1, description="Name of the AI project")
-    description: Optional[str] = Field(None, description="Project description")
+    user_id: str = Field(..., min_length=1, max_length=255, description="User identifier")
+    project_name: str = Field(..., min_length=1, max_length=500, description="Name of the AI project")
+    description: Optional[str] = Field(None, max_length=2000, description="Project description")
+
+    @validator('user_id')
+    def validate_user_id(cls, v):
+        """Ensure user_id is alphanumeric with allowed special chars."""
+        if not re.match(r'^[a-zA-Z0-9_\-@.]+$', v):
+            raise ValueError('user_id must contain only alphanumeric characters, underscores, hyphens, @ and dots')
+        return v
+
+    @validator('project_name')
+    def validate_project_name(cls, v):
+        """Prevent injection attacks in project name."""
+        if re.search(r'[<>"\';]|--|\*|/|\\|DROP|DELETE|INSERT|UPDATE|SELECT|EXEC|SCRIPT', v, re.IGNORECASE):
+            raise ValueError('project_name contains invalid characters or SQL keywords')
+        return v.strip()
+
+    @validator('description')
+    def validate_description(cls, v):
+        """Sanitize project description."""
+        if v and re.search(r'<script[^>]*>.*?</script>', v, re.IGNORECASE | re.DOTALL):
+            raise ValueError('description cannot contain script tags')
+        return v.strip() if v else v
 
     class Config:
         schema_extra = {
