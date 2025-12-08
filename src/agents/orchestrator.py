@@ -10,8 +10,9 @@ Based on SWE Specification Section 7.1 - Orchestrator Agent.
 
 import asyncio
 import logging
+import time
 from datetime import datetime, timezone
-from typing import Any, Union
+from typing import Any, Dict, Tuple, Union
 from uuid import UUID, uuid4
 
 # Python 3.9 compatibility - UTC was added in Python 3.11
@@ -115,7 +116,9 @@ class Orchestrator:
         self.active_sessions: dict[UUID, Session] = {}
 
         # M-2 Security Fix: Async locks for thread-safe state management
-        self._session_locks: dict[UUID, asyncio.Lock] = {}
+        # Structure: {session_id: (lock, last_access_time)}
+        self._session_locks: Dict[UUID, Tuple[asyncio.Lock, float]] = {}
+        self._lock_ttl_seconds = 3600  # 1 hour - clean up unused locks
         self._global_lock: asyncio.Lock = asyncio.Lock()
 
         # Quality loop tracking
@@ -216,25 +219,55 @@ class Orchestrator:
         M-2 Security Fix: Prevents race conditions when multiple coroutines
         access same session concurrently.
 
+        Includes TTL-based cleanup to prevent memory leaks from long-lived sessions.
+
         Args:
             session_id: Session UUID
 
         Returns:
             Async lock for the session
         """
+        # Periodically clean up stale locks
+        self._cleanup_stale_locks()
+
+        current_time = time.time()
         if session_id not in self._session_locks:
-            self._session_locks[session_id] = asyncio.Lock()
-        return self._session_locks[session_id]
+            self._session_locks[session_id] = (asyncio.Lock(), current_time)
+        else:
+            # Update last access time
+            lock, _ = self._session_locks[session_id]
+            self._session_locks[session_id] = (lock, current_time)
+
+        return self._session_locks[session_id][0]
+
+    def _cleanup_stale_locks(self) -> None:
+        """
+        Remove locks not accessed within TTL period.
+
+        Prevents unbounded memory growth from accumulated session locks.
+        """
+        now = time.time()
+        stale_sessions = [
+            session_id for session_id, (_, last_access) in self._session_locks.items()
+            if now - last_access > self._lock_ttl_seconds
+        ]
+
+        for session_id in stale_sessions:
+            del self._session_locks[session_id]
+            logger.debug(f"Cleaned up stale lock for session {session_id}")
 
     async def _cleanup_session_lock(self, session_id: UUID) -> None:
         """
-        Clean up lock for completed/deleted session.
+        Clean up lock for completed/deleted session immediately.
+
+        Called when session is explicitly completed or deleted.
 
         Args:
             session_id: Session UUID
         """
         if session_id in self._session_locks:
             del self._session_locks[session_id]
+            logger.debug(f"Removed lock for completed session {session_id}")
 
     # ========================================================================
     # SESSION MANAGEMENT
@@ -855,17 +888,26 @@ class Orchestrator:
 
         Uses SessionRepository to save session state including stage data,
         conversation history, and checkpoints.
+
+        Raises:
+            RuntimeError: If session persistence fails (critical operation)
         """
         if not self.session_repo:
-            logger.debug("No session repository available, skipping session persistence")
-            return
+            raise RuntimeError(
+                "Session repository not available - cannot create session. "
+                "Database may not be initialized."
+            )
 
         try:
             await self.session_repo.create(session)
             logger.info(f"Persisted session {session.session_id} to database")
         except Exception as e:
-            logger.error(f"Failed to persist session {session.session_id}: {e}")
-            # Don't raise - allow session to continue even if persistence fails
+            logger.error(f"Failed to persist session {session.session_id}: {e}", exc_info=True)
+            # CRITICAL: Raise exception to prevent session creation without persistence
+            raise RuntimeError(
+                f"Failed to save session {session.session_id} to database. "
+                f"Your session was not created. Please retry. Error: {str(e)}"
+            ) from e
 
     async def _load_session_from_db(self, session_id: UUID) -> Union[Session, None]:
         """

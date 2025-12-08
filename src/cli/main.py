@@ -862,31 +862,40 @@ def delete_command(ctx: click.Context, session_id: str, force: bool) -> None:
     console.print(f"[yellow]Deleting session {session_id}...[/yellow]")
 
     # Delete session from database
+    async def _delete_async():
+        try:
+            from src.database.connection import DatabaseConfig
+
+            db_config = DatabaseConfig.from_env()
+            db_manager = DatabaseManager(db_config)
+            try:
+                await db_manager.initialize()
+                session_repo = SessionRepository(db_manager)
+                result = await session_repo.delete(session_uuid)
+
+                if result:
+                    console.print(
+                        f"[green]✓ Session {session_id} deleted successfully.[/green]"
+                    )
+                else:
+                    console.print(
+                        f"[yellow]⚠ Session {session_id} not found or already deleted.[/yellow]"
+                    )
+                return result
+            finally:
+                await db_manager.close()
+        except ValueError as e:
+            console.print(f"[red]✗ Configuration error: {str(e)}[/red]")
+            sys.exit(1)
+        except Exception as e:
+            console.print(f"[red]✗ Error deleting session: {str(e)}[/red]")
+            sys.exit(1)
+
     try:
-        db_config = {
-            "host": os.getenv("DB_HOST", "localhost"),
-            "port": int(os.getenv("DB_PORT", "15432")),
-            "database": os.getenv("DB_NAME", "uaip_scoping"),
-            "user": os.getenv("DB_USER", "uaip_user"),
-            "password": os.getenv("DB_PASSWORD", "changeme"),
-        }
-        db_manager = DatabaseManager(db_config)
-        session_repo = SessionRepository(db_manager)
-
-        # Run async delete operation
         loop = asyncio.get_event_loop()
-        result = loop.run_until_complete(session_repo.delete(session_uuid))
-
-        if result:
-            console.print(
-                f"[green]✓ Session {session_id} deleted successfully.[/green]"
-            )
-        else:
-            console.print(
-                f"[yellow]⚠ Session {session_id} not found or already deleted.[/yellow]"
-            )
+        loop.run_until_complete(_delete_async())
     except Exception as e:
-        console.print(f"[red]✗ Error deleting session: {str(e)}[/red]")
+        console.print(f"[red]✗ Error: {str(e)}[/red]")
         sys.exit(1)
 
 
@@ -1113,55 +1122,62 @@ def status_command(ctx: click.Context, session_id: str) -> None:
         sys.exit(1)
 
     # Get session from database
-    try:
-        db_config = {
-            "host": os.getenv("DB_HOST", "localhost"),
-            "port": int(os.getenv("DB_PORT", "15432")),
-            "database": os.getenv("DB_NAME", "uaip_scoping"),
-            "user": os.getenv("DB_USER", "uaip_user"),
-            "password": os.getenv("DB_PASSWORD", "changeme"),
-        }
-        db_manager = DatabaseManager(db_config)
-        session_repo = SessionRepository(db_manager)
+    async def _get_status_async():
+        try:
+            from src.database.connection import DatabaseConfig
 
-        # Run async get operation
-        loop = asyncio.get_event_loop()
-        session = loop.run_until_complete(session_repo.get_by_id(session_uuid))
+            db_config = DatabaseConfig.from_env()
+            db_manager = DatabaseManager(db_config)
+            try:
+                await db_manager.initialize()
+                session_repo = SessionRepository(db_manager)
+                session = await session_repo.get_by_id(session_uuid)
 
-        if not session:
-            console.print(f"[yellow]⚠ Session {session_id} not found.[/yellow]")
+                if not session:
+                    console.print(f"[yellow]⚠ Session {session_id} not found.[/yellow]")
+                    sys.exit(1)
+
+                # Display session information
+                console.print(
+                    Panel.fit(
+                        f"[bold cyan]Session Status[/bold cyan]\n"
+                        f"[dim]ID:[/dim] {session.session_id}\n"
+                        f"[dim]Project:[/dim] {session.project_name}\n"
+                        f"[dim]User:[/dim] {session.user_id}\n"
+                        f"[dim]Status:[/dim] {session.status.value}\n"
+                        f"[dim]Current Stage:[/dim] {session.current_stage}/5\n"
+                        f"[dim]Created:[/dim] {session.started_at}\n"
+                        f"[dim]Updated:[/dim] {session.last_updated_at}",
+                        border_style="cyan",
+                    )
+                )
+
+                # Show progress
+                if session.current_stage > 1:
+                    console.print("\n[cyan]Completed Stages:[/cyan]")
+                    stage_names = {
+                        1: "Problem Statement",
+                        2: "Metric Alignment",
+                        3: "Data Quality",
+                        4: "User Context",
+                        5: "Ethical Risk",
+                    }
+                    for stage in range(1, session.current_stage):
+                        console.print(f"  ✓ [dim]Stage {stage}: {stage_names.get(stage, 'Unknown')}[/dim]")
+            finally:
+                await db_manager.close()
+        except ValueError as e:
+            console.print(f"[red]✗ Configuration error: {str(e)}[/red]")
+            sys.exit(1)
+        except Exception as e:
+            console.print(f"[red]✗ Error retrieving session: {str(e)}[/red]")
             sys.exit(1)
 
-        # Display session information
-        console.print(
-            Panel.fit(
-                f"[bold cyan]Session Status[/bold cyan]\n"
-                f"[dim]ID:[/dim] {session.session_id}\n"
-                f"[dim]Project:[/dim] {session.project_name}\n"
-                f"[dim]User:[/dim] {session.user_id}\n"
-                f"[dim]Status:[/dim] {session.status.value}\n"
-                f"[dim]Current Stage:[/dim] {session.current_stage}/5\n"
-                f"[dim]Created:[/dim] {session.created_at}\n"
-                f"[dim]Updated:[/dim] {session.updated_at}",
-                border_style="cyan",
-            )
-        )
-
-        # Show progress
-        if session.current_stage > 1:
-            console.print("\n[cyan]Completed Stages:[/cyan]")
-            stage_names = {
-                1: "Business Translation",
-                2: "Value Quantification",
-                3: "Data Feasibility",
-                4: "User Centricity",
-                5: "Ethical Evaluation",
-            }
-            for stage in range(1, session.current_stage):
-                console.print(f"  ✓ [dim]Stage {stage}: {stage_names.get(stage, 'Unknown')}[/dim]")
-
+    try:
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(_get_status_async())
     except Exception as e:
-        console.print(f"[red]✗ Error retrieving session: {str(e)}[/red]")
+        console.print(f"[red]✗ Error: {str(e)}[/red]")
         sys.exit(1)
 
 
