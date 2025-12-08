@@ -399,8 +399,12 @@ class Orchestrator:
                 await self.session_repo.update(session)
                 logger.info(f"Persisted stage {stage_number} completion to database")
             except Exception as e:
-                logger.error(f"Failed to persist stage completion: {e}")
-                # Don't raise - allow session to continue even if persistence fails
+                logger.error(f"Failed to persist stage completion: {e}", exc_info=True)
+                # CRITICAL: Raise the exception to prevent silent data loss
+                raise RuntimeError(
+                    f"Failed to save stage {stage_number} completion to database. "
+                    f"Please retry the operation. Error: {str(e)}"
+                ) from e
 
         return stage_output
 

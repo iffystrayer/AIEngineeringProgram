@@ -5,6 +5,7 @@ Provides JWT token generation, validation, and password hashing for user authent
 """
 
 import logging
+import os
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -14,7 +15,14 @@ from jose import JWTError, jwt
 logger = logging.getLogger(__name__)
 
 # JWT Configuration
-SECRET_KEY = "your-secret-key-change-in-production"  # TODO: Load from environment
+_secret_key = os.getenv("JWT_SECRET")
+if not _secret_key:
+    raise RuntimeError(
+        "JWT_SECRET environment variable is required. "
+        "Generate with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+    )
+
+SECRET_KEY = _secret_key
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24
 

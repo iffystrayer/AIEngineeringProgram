@@ -391,7 +391,11 @@ async def login(request: Request, body: UserLoginRequest) -> Dict[str, Any]:
 
 @app.post("/api/v1/sessions", response_model=SessionResponse, status_code=201)
 @limiter.limit("100 per hour")
-async def create_session(request: Request, body: SessionRequest) -> Dict[str, Any]:
+async def create_session(
+    request: Request,
+    body: SessionRequest,
+    current_user: str = Depends(get_current_user)
+) -> Dict[str, Any]:
     """
     Create a new AI project scoping session.
 
@@ -438,7 +442,11 @@ async def create_session(request: Request, body: SessionRequest) -> Dict[str, An
 
 @app.get("/api/v1/sessions/{session_id}", response_model=SessionResponse)
 @limiter.limit("100 per hour")
-async def get_session(request: Request, session_id: str) -> Dict[str, Any]:
+async def get_session(
+    request: Request,
+    session_id: str,
+    current_user: str = Depends(get_current_user)
+) -> Dict[str, Any]:
     """
     Get session details.
 
@@ -477,6 +485,17 @@ async def get_session(request: Request, session_id: str) -> Dict[str, Any]:
                 ),
             )
 
+        # Verify user owns this session
+        if session.user_id != current_user:
+            raise HTTPException(
+                status_code=403,
+                detail=create_error_response(
+                    code="FORBIDDEN",
+                    message="You do not have access to this session",
+                    status_code=403,
+                ),
+            )
+
         return {
             "session_id": str(session.session_id),
             "user_id": session.user_id,
@@ -509,6 +528,7 @@ async def list_sessions(
     status: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
+    current_user: str = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """
     List sessions with optional filtering and pagination.
@@ -522,11 +542,9 @@ async def list_sessions(
         sessions = []
         total = 0
 
-        if user_id:
-            sessions = await session_repo.get_by_user_id(user_id, limit=limit + skip)
-        else:
-            # Get all sessions with pagination
-            sessions = await session_repo.get_all_sessions(limit=limit + skip, skip=skip)
+        # Users can only list their own sessions
+        # Ignore user_id parameter if provided - always use current_user
+        sessions = await session_repo.get_by_user_id(current_user, limit=limit + skip)
 
         # Filter by status if provided
         if status:
@@ -578,6 +596,7 @@ async def execute_stage(
     session_id: str,
     stage_number: int,
     request: Optional[StageExecutionRequest] = None,
+    current_user: str = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """
     Execute a specific stage.
@@ -608,6 +627,17 @@ async def execute_stage(
                     code="NOT_FOUND",
                     message=f"Session {session_id} not found",
                     status_code=404,
+                ),
+            )
+
+        # Verify user owns this session
+        if session.user_id != current_user:
+            raise HTTPException(
+                status_code=403,
+                detail=create_error_response(
+                    code="FORBIDDEN",
+                    message="You do not have access to this session",
+                    status_code=403,
                 ),
             )
 
@@ -670,6 +700,7 @@ async def advance_stage(
     request: Request,
     session_id: str,
     stage_number: int,
+    current_user: str = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """
     Validate and advance to next stage.
@@ -700,6 +731,17 @@ async def advance_stage(
                     code="NOT_FOUND",
                     message=f"Session {session_id} not found",
                     status_code=404,
+                ),
+            )
+
+        # Verify user owns this session
+        if session.user_id != current_user:
+            raise HTTPException(
+                status_code=403,
+                detail=create_error_response(
+                    code="FORBIDDEN",
+                    message="You do not have access to this session",
+                    status_code=403,
                 ),
             )
 
@@ -752,7 +794,11 @@ async def advance_stage(
 
 @app.get("/api/v1/sessions/{session_id}/stages", response_model=StagesStatusResponse)
 @limiter.limit("100 per hour")
-async def get_stages_status(request: Request, session_id: str) -> Dict[str, Any]:
+async def get_stages_status(
+    request: Request,
+    session_id: str,
+    current_user: str = Depends(get_current_user),
+) -> Dict[str, Any]:
     """
     Get status of all stages for a session.
 
@@ -771,6 +817,17 @@ async def get_stages_status(request: Request, session_id: str) -> Dict[str, Any]
                     code="NOT_FOUND",
                     message=f"Session {session_id} not found",
                     status_code=404,
+                ),
+            )
+
+        # Verify user owns this session
+        if session.user_id != current_user:
+            raise HTTPException(
+                status_code=403,
+                detail=create_error_response(
+                    code="FORBIDDEN",
+                    message="You do not have access to this session",
+                    status_code=403,
                 ),
             )
 
@@ -824,7 +881,11 @@ async def get_stages_status(request: Request, session_id: str) -> Dict[str, Any]
 
 @app.get("/api/v1/sessions/{session_id}/consistency", response_model=ConsistencyResponse)
 @limiter.limit("50 per hour")
-async def check_consistency(request: Request, session_id: str) -> Dict[str, Any]:
+async def check_consistency(
+    request: Request,
+    session_id: str,
+    current_user: str = Depends(get_current_user),
+) -> Dict[str, Any]:
     """
     Check cross-stage consistency.
 
@@ -843,6 +904,17 @@ async def check_consistency(request: Request, session_id: str) -> Dict[str, Any]
                     code="NOT_FOUND",
                     message=f"Session {session_id} not found",
                     status_code=404,
+                ),
+            )
+
+        # Verify user owns this session
+        if session.user_id != current_user:
+            raise HTTPException(
+                status_code=403,
+                detail=create_error_response(
+                    code="FORBIDDEN",
+                    message="You do not have access to this session",
+                    status_code=403,
                 ),
             )
 
@@ -897,6 +969,7 @@ async def generate_charter(
     req: Request,
     session_id: str,
     request: Optional[CharterGenerationRequest] = None,
+    current_user: str = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """
     Generate AI Project Charter.
@@ -916,6 +989,17 @@ async def generate_charter(
                     code="NOT_FOUND",
                     message=f"Session {session_id} not found",
                     status_code=404,
+                ),
+            )
+
+        # Verify user owns this session
+        if session.user_id != current_user:
+            raise HTTPException(
+                status_code=403,
+                detail=create_error_response(
+                    code="FORBIDDEN",
+                    message="You do not have access to this session",
+                    status_code=403,
                 ),
             )
 

@@ -82,6 +82,11 @@ def cli(ctx: click.Context, verbose: bool, config: Optional[str]) -> None:
         os.environ["LOG_LEVEL"] = os.getenv("LOG_LEVEL", "INFO")
 
 
+def _raise_password_error() -> None:
+    """Raise an error for missing DB password."""
+    raise ValueError("DB_PASSWORD environment variable is required")
+
+
 def _display_cli_welcome() -> None:
     """Display a beautiful welcome banner for the CLI."""
     title = Text("U-AIP Scoping Assistant", style="bold cyan", justify="center")
@@ -192,7 +197,7 @@ async def _start_session_async(
             port=int(os.getenv("DB_PORT", "15432")),
             database=os.getenv("DB_NAME", "uaip_scoping"),
             user=os.getenv("DB_USER", "uaip_user"),
-            password=os.getenv("DB_PASSWORD", "changeme"),
+            password=os.getenv("DB_PASSWORD") or _raise_password_error(),
         )
 
         # Initialize database manager
@@ -423,7 +428,7 @@ async def _resume_session_async(session_id: UUID, config: dict) -> None:
             port=int(os.getenv("DB_PORT", "15432")),
             database=os.getenv("DB_NAME", "uaip_scoping"),
             user=os.getenv("DB_USER", "uaip_user"),
-            password=os.getenv("DB_PASSWORD", "changeme"),
+            password=os.getenv("DB_PASSWORD") or _raise_password_error(),
         )
 
         db_manager = DatabaseManager(db_config)
@@ -662,7 +667,7 @@ async def _list_sessions_async(
             port=int(os.getenv("DB_PORT", "15432")),
             database=os.getenv("DB_NAME", "uaip_scoping"),
             user=os.getenv("DB_USER", "uaip_user"),
-            password=os.getenv("DB_PASSWORD", "changeme"),
+            password=os.getenv("DB_PASSWORD") or _raise_password_error(),
         )
 
         db_manager = DatabaseManager(db_config)
@@ -977,7 +982,7 @@ async def _export_charter_async(
             port=int(os.getenv("DB_PORT", "15432")),
             database=os.getenv("DB_NAME", "uaip_scoping"),
             user=os.getenv("DB_USER", "uaip_user"),
-            password=os.getenv("DB_PASSWORD", "changeme"),
+            password=os.getenv("DB_PASSWORD") or _raise_password_error(),
         )
 
         db_manager = DatabaseManager(db_config)

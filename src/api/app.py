@@ -17,6 +17,7 @@ from typing import List, Optional
 import json
 import os
 import logging
+import uuid
 
 from src.services.progress_service import ProgressService
 from src.database.connection import DatabaseManager
@@ -76,6 +77,29 @@ progress_service = ProgressService()
 # Database manager will be initialized on startup
 db_manager = None
 session_repo = None
+
+
+# ============================================================================
+# Error Handler Utility
+# ============================================================================
+
+def handle_error(operation: str, error: Exception) -> HTTPException:
+    """
+    Handle API errors safely - log details server-side, return generic message to client.
+
+    Args:
+        operation: Description of the operation that failed
+        error: The exception that occurred
+
+    Returns:
+        HTTPException with generic message and error ID for tracking
+    """
+    error_id = str(uuid.uuid4())[:8]
+    logger.error(f"Error {error_id} ({operation}): {error}", exc_info=True)
+    return HTTPException(
+        status_code=500,
+        detail=f"Internal server error. Reference: {error_id}"
+    )
 
 
 # ============================================================================
@@ -153,8 +177,7 @@ async def create_session(request: CreateSessionRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to create session: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error("create_session", e)
 
 
 @app.get("/api/sessions/{session_id}")
@@ -187,8 +210,7 @@ async def get_session(session_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to get session: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error("get_session", e)
 
 
 @app.get("/api/sessions")
@@ -216,8 +238,7 @@ async def list_sessions(user_id: str = Query(...)):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to list sessions: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error("list_sessions", e)
 
 
 @app.delete("/api/sessions/{session_id}", status_code=204)
@@ -241,8 +262,7 @@ async def delete_session(session_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to delete session: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error("delete_session", e)
 
 
 # ============================================================================
@@ -274,7 +294,7 @@ async def get_progress(session_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error("get_progress", e)
 
 
 @app.post("/api/sessions/{session_id}/answer")
@@ -303,7 +323,7 @@ async def submit_answer(session_id: str, request: SubmitAnswerRequest):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error("submit_answer", e)
 
 
 @app.get("/api/sessions/{session_id}/events")
@@ -321,7 +341,7 @@ async def get_events(session_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error("get_events", e)
 
 
 # ============================================================================
@@ -360,7 +380,7 @@ async def stream_events(session_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error("stream_events", e)
 
 
 # ============================================================================

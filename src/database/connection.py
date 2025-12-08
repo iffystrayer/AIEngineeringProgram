@@ -32,7 +32,7 @@ class DatabaseConfig:
         port: int = 15432,
         database: str = "uaip_scoping",
         user: str = "uaip_user",
-        password: str = "changeme",
+        password: str,
         min_pool_size: int = 2,
         max_pool_size: int = 10,
         command_timeout: float = 30.0,
@@ -55,12 +55,19 @@ class DatabaseConfig:
 
         load_dotenv()
 
+        password = os.getenv("DB_PASSWORD")
+        if not password:
+            raise ValueError(
+                "DB_PASSWORD environment variable is required. "
+                "Please set it before running the application."
+            )
+
         return cls(
             host=os.getenv("DB_HOST", "localhost"),
             port=int(os.getenv("DB_PORT", "15432")),
             database=os.getenv("DB_NAME", "uaip_scoping"),
             user=os.getenv("DB_USER", "uaip_user"),
-            password=os.getenv("DB_PASSWORD", "changeme"),
+            password=password,
             min_pool_size=int(os.getenv("DB_POOL_MIN_SIZE", "2")),
             max_pool_size=int(os.getenv("DB_POOL_MAX_SIZE", "10")),
             command_timeout=float(os.getenv("DB_POOL_TIMEOUT", "30.0")),
