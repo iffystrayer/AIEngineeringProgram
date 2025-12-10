@@ -35,6 +35,7 @@ RUN python -m venv /app/.venv && \
         psycopg2-binary>=2.9.9 \
         pydantic>=2.5.0 \
         pydantic-settings>=2.1.0 \
+        email-validator>=2.0.0 \
         anthropic>=0.18.0 \
         python-jose[cryptography]>=3.3.0 \
         bcrypt>=4.1.0 \

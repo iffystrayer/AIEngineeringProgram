@@ -27,6 +27,7 @@ dependencies = [
     # Data Validation & Models
     "pydantic>=2.5.0",
     "pydantic-settings>=2.1.0",
+    "email-validator>=2.0.0",
 
     # Configuration
     "pyyaml>=6.0",

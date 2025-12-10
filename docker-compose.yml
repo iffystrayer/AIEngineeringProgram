@@ -54,6 +54,9 @@ services:
     restart: unless-stopped
 
     environment:
+      # Security configuration
+      JWT_SECRET: ${JWT_SECRET}
+
       # Database configuration
       DB_HOST: uaip-db
       DB_PORT: 5432
@@ -117,6 +120,9 @@ services:
     restart: unless-stopped
 
     environment:
+      # Security configuration
+      JWT_SECRET: ${JWT_SECRET}
+
       # Database configuration
       DB_HOST: uaip-db
       DB_PORT: 5432

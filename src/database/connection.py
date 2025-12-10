@@ -28,11 +28,11 @@ class DatabaseConfig:
 
     def __init__(
         self,
+        password: str,
         host: str = "localhost",
         port: int = 15432,
         database: str = "uaip_scoping",
         user: str = "uaip_user",
-        password: str,
         min_pool_size: int = 2,
         max_pool_size: int = 10,
         command_timeout: float = 30.0,
@@ -63,11 +63,11 @@ class DatabaseConfig:
             )
 
         return cls(
+            password=password,
             host=os.getenv("DB_HOST", "localhost"),
             port=int(os.getenv("DB_PORT", "15432")),
             database=os.getenv("DB_NAME", "uaip_scoping"),
             user=os.getenv("DB_USER", "uaip_user"),
-            password=password,
             min_pool_size=int(os.getenv("DB_POOL_MIN_SIZE", "2")),
             max_pool_size=int(os.getenv("DB_POOL_MAX_SIZE", "10")),
             command_timeout=float(os.getenv("DB_POOL_TIMEOUT", "30.0")),

@@ -11,6 +11,44 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================================================
+-- USERS TABLE
+-- ============================================================================
+-- Stores user account information for authentication and authorization
+
+CREATE TABLE IF NOT EXISTS users (
+    user_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    name VARCHAR(255),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for efficient user queries
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at DESC);
+
+-- Trigger to automatically update updated_at
+CREATE OR REPLACE FUNCTION update_users_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_users_updated
+    BEFORE UPDATE ON users
+    FOR EACH ROW
+    EXECUTE FUNCTION update_users_timestamp();
+
+COMMENT ON TABLE users IS 'User accounts for U-AIP authentication';
+COMMENT ON COLUMN users.user_id IS 'Unique user identifier (UUID)';
+COMMENT ON COLUMN users.email IS 'User email address (unique)';
+COMMENT ON COLUMN users.password_hash IS 'Bcrypt password hash';
+COMMENT ON COLUMN users.name IS 'User full name';
+
+-- ============================================================================
 -- SESSIONS TABLE
 -- ============================================================================
 -- Stores user session state for multi-stage interview process
